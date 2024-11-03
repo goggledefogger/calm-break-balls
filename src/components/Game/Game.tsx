@@ -107,6 +107,8 @@ const Game: React.FC = () => {
     // Initial setup
     createInitialBlocks();
     createBalls();
+    // Add walls to the scene
+    createWalls();
 
     // Animation loop
     const animate = () => {
@@ -289,33 +291,30 @@ const Game: React.FC = () => {
   };
 
   const updateGame = () => {
+    // Update each ball
     ballsRef.current.forEach((ball) => {
       if (!ball.userData.active) return;
 
+      // Move ball based on velocity
       ball.position.add(ball.userData.velocity);
 
-      // Boundary collisions
-      if (Math.abs(ball.position.x) > GAME_WIDTH / 2 - BALL_RADIUS) {
-        ball.position.x =
-          Math.sign(ball.position.x) * (GAME_WIDTH / 2 - BALL_RADIUS);
+      // Check wall collisions
+      if (ball.position.x <= -GAME_WIDTH / 2 + BALL_RADIUS ||
+          ball.position.x >= GAME_WIDTH / 2 - BALL_RADIUS) {
         ball.userData.velocity.x *= -1;
       }
-      if (ball.position.y > GAME_HEIGHT / 2 - BALL_RADIUS) {
-        ball.position.y = GAME_HEIGHT / 2 - BALL_RADIUS;
+      if (ball.position.y >= GAME_HEIGHT / 2 - BALL_RADIUS) {
         ball.userData.velocity.y *= -1;
       }
 
-      // Bottom collision - return ball
-      if (
-        ball.position.y <= startPositionRef.current.y &&
-        ball.userData.velocity.y < 0
-      ) {
-        ball.position.copy(startPositionRef.current);
+      // Check if ball has returned to bottom
+      if (ball.position.y <= -GAME_HEIGHT / 2 + BALL_RADIUS) {
         ball.userData.active = false;
+        ball.position.copy(startPositionRef.current);
         returnedBallsCount.current++;
 
-        // Check if turn is complete
-        if (returnedBallsCount.current === totalBallsThisTurnRef.current) {
+        // If all balls have returned, end the turn
+        if (returnedBallsCount.current >= totalBallsThisTurnRef.current) {
           endTurn();
         }
       }
@@ -326,11 +325,13 @@ const Game: React.FC = () => {
         const collisionDistance =
           BALL_RADIUS +
           (block.userData.type === "powerUp" ? 0.5 : BLOCK_SIZE / 2);
+
         if (distance < collisionDistance) {
           if (block.userData.type === "powerUp") {
             sceneRef.current.remove(block);
             blocksRef.current.splice(blocksRef.current.indexOf(block), 1);
             setNumBalls((prev) => prev + 1);
+            // Do NOT reflect the ball's velocity
           } else {
             handleBlockCollision(
               block as any,
@@ -338,13 +339,12 @@ const Game: React.FC = () => {
               blocksRef,
               setScore
             );
+            // Reflect ball only when hitting a block
+            const normal = new THREE.Vector3()
+              .subVectors(ball.position, block.position)
+              .normalize();
+            ball.userData.velocity.reflect(normal);
           }
-
-          // Reflect ball
-          const normal = new THREE.Vector3()
-            .subVectors(ball.position, block.position)
-            .normalize();
-          ball.userData.velocity.reflect(normal);
         }
       });
     });
@@ -365,6 +365,43 @@ const Game: React.FC = () => {
       }
     });
   };
+
+  const createWalls = () => {
+    const wallMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+    const wallThickness = 0.1;
+    const wallDepth = 1;
+
+    // Left wall
+    const leftWallGeometry = new THREE.BoxGeometry(
+      wallThickness,
+      GAME_HEIGHT,
+      wallDepth
+    );
+    const leftWall = new THREE.Mesh(leftWallGeometry, wallMaterial);
+    leftWall.position.set(-GAME_WIDTH / 2 + wallThickness / 2, 0, 0);
+    sceneRef.current.add(leftWall);
+
+    // Right wall
+    const rightWallGeometry = new THREE.BoxGeometry(
+      wallThickness,
+      GAME_HEIGHT,
+      wallDepth
+    );
+    const rightWall = new THREE.Mesh(rightWallGeometry, wallMaterial);
+    rightWall.position.set(GAME_WIDTH / 2 - wallThickness / 2, 0, 0);
+    sceneRef.current.add(rightWall);
+
+    // Top wall
+    const topWallGeometry = new THREE.BoxGeometry(
+      GAME_WIDTH,
+      wallThickness,
+      wallDepth
+    );
+    const topWall = new THREE.Mesh(topWallGeometry, wallMaterial);
+    topWall.position.set(0, GAME_HEIGHT / 2 - wallThickness / 2, 0);
+    sceneRef.current.add(topWall);
+  };
+
 
   const createNewRowOfBlocks = () => {
     for (let x = -4; x <= 4; x += 2) {
