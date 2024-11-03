@@ -1,0 +1,17 @@
+/* src/components/PauseButton/PauseButton.module.css */
+
+.pauseButton {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  padding: 10px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.pauseButton:hover {
+  background-color: rgba(0, 0, 0, 0.7);
+}

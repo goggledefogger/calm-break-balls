@@ -1,0 +1,28 @@
+.gameContainer {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  /* Ensure it doesn't exceed viewport height */
+  background-color: #1a202c;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.canvasContainer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  /* Let height fill the parent container */
+  max-height: 100vh;
+  /* Prevent exceeding viewport height */
+  aspect-ratio: 10 / 15;
+  /* Maintain aspect ratio */
+}
+
+.canvasContainer canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}

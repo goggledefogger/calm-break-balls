@@ -1,0 +1,24 @@
+/* src/components/ScoreBoard/ScoreBoard.module.css */
+
+.score {
+  position: absolute;
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.topRight {
+  top: 4px;
+  right: 4px;
+}
+
+.topLeft {
+  top: 4px;
+  left: 4px;
+}
+
+.topCenter {
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+}
