@@ -12,12 +12,13 @@ import ScoreBoard from "../ScoreBoard/ScoreBoard";
 import PauseButton from "../PauseButton/PauseButton";
 import GameOver from "../GameOver/GameOver";
 import styles from "./Game.module.css";
+import gsap from "gsap";
 
 const Game: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene>(new THREE.Scene());
   const rendererRef = useRef<THREE.WebGLRenderer>();
-  const cameraRef = useRef<THREE.OrthographicCamera>();
+  const cameraRef = useRef<THREE.PerspectiveCamera>();
   const requestRef = useRef<number>();
 
   const ballsRef = useRef<THREE.Mesh[]>([]);
@@ -29,6 +30,15 @@ const Game: React.FC = () => {
   const totalBallsThisTurnRef = useRef<number>(0);
   const turnInProgressRef = useRef<boolean>(false);
   const isAimingRef = useRef<boolean>(false);
+
+  const initialCameraPositionRef = useRef<THREE.Vector3>(new THREE.Vector3());
+  const initialCameraQuaternionRef = useRef(new THREE.Quaternion());
+  const cameraTargetQuaternionRef = useRef(new THREE.Quaternion());
+  const tempCameraRef = useRef(new THREE.PerspectiveCamera());
+  const ballToFollowRef = useRef<THREE.Mesh>();
+
+  const cameraTargetPositionRef = useRef(new THREE.Vector3());
+  const cameraOrbitAngleRef = useRef(0);
 
   const {
     BALL_RADIUS,
@@ -52,29 +62,24 @@ const Game: React.FC = () => {
     setIsGameOver,
   } = useContext(GameContext)!;
 
-  useEffect(() => {
-    initGame();
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      cancelAnimationFrame(requestRef.current!);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const initGame = () => {
     const scene = sceneRef.current;
     scene.background = new THREE.Color(0x1a202c);
 
-    const camera = new THREE.OrthographicCamera(
-      -GAME_WIDTH / 2,
-      GAME_WIDTH / 2,
-      GAME_HEIGHT / 2,
-      -GAME_HEIGHT / 2,
-      0.1,
-      1000
-    );
-    camera.position.z = 20;
+    // Initialize the camera
+    const aspect = window.innerWidth / window.innerHeight;
+    const camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
+    camera.position.set(0, -GAME_HEIGHT / 2 + 5, 20);
+    camera.lookAt(new THREE.Vector3(0, 0, 0));
     cameraRef.current = camera;
+
+    // Store the initial camera position and quaternion
+    initialCameraPositionRef.current.copy(camera.position);
+    initialCameraQuaternionRef.current.copy(camera.quaternion);
+
+    // Set initial camera target position and rotation
+    cameraTargetPositionRef.current.copy(camera.position);
+    cameraTargetQuaternionRef.current.copy(camera.quaternion);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     containerRef.current!.appendChild(renderer.domElement);
@@ -141,19 +146,13 @@ const Game: React.FC = () => {
     const height = container.clientHeight;
     renderer.setSize(width, height);
 
-    // Update camera frustum based on aspect ratio
+    // Update camera aspect ratio
     const aspect = width / height;
-    const frustumHeight = GAME_HEIGHT;
-    const frustumWidth = frustumHeight * aspect;
-
-    camera.left = -frustumWidth / 2;
-    camera.right = frustumWidth / 2;
-    camera.top = frustumHeight / 2;
-    camera.bottom = -frustumHeight / 2;
+    camera.aspect = aspect;
     camera.updateProjectionMatrix();
 
-    // Update start position based on new frustum
-    startPositionRef.current = new THREE.Vector3(0, camera.bottom + 1, 0);
+    // Update start position based on new camera
+    startPositionRef.current = new THREE.Vector3(0, -GAME_HEIGHT / 2 + 1, 0);
   };
 
   const createBalls = () => {
@@ -188,11 +187,10 @@ const Game: React.FC = () => {
         e.clientX,
         e.clientY,
         containerRef,
-        GAME_WIDTH,
-        GAME_HEIGHT
+        cameraRef.current!
       );
     },
-    [GAME_WIDTH, GAME_HEIGHT]
+    []
   );
 
   const handlePointerMove = useCallback(
@@ -203,13 +201,15 @@ const Game: React.FC = () => {
         e.clientX,
         e.clientY,
         containerRef,
-        GAME_WIDTH,
-        GAME_HEIGHT
+        cameraRef.current!
       );
       const dragVector = new THREE.Vector3().subVectors(
         currentWorldPos,
         initialWorldPosRef.current
       );
+
+      // Ensure z-component is zero
+      dragVector.z = 0;
 
       const direction = dragVector
         .clone()
@@ -217,13 +217,16 @@ const Game: React.FC = () => {
         .normalize()
         .multiplyScalar(MAX_AIM_LENGTH);
 
+      // Ensure z-component is zero
+      direction.z = 0;
+
       const positions = new Float32Array([
         startPositionRef.current.x,
         startPositionRef.current.y,
-        0,
+        startPositionRef.current.z,
         startPositionRef.current.x + direction.x,
         startPositionRef.current.y + direction.y,
-        0,
+        startPositionRef.current.z + direction.z,
       ]);
 
       aimLineRef.current!.geometry.setAttribute(
@@ -231,7 +234,7 @@ const Game: React.FC = () => {
         new THREE.BufferAttribute(positions, 3)
       );
     },
-    [GAME_WIDTH, GAME_HEIGHT, MAX_AIM_LENGTH]
+    [MAX_AIM_LENGTH]
   );
 
   const handlePointerUp = useCallback(
@@ -251,13 +254,15 @@ const Game: React.FC = () => {
         e.clientX,
         e.clientY,
         containerRef,
-        GAME_WIDTH,
-        GAME_HEIGHT
+        cameraRef.current!
       );
       const dragVector = new THREE.Vector3().subVectors(
         currentWorldPos,
         initialWorldPosRef.current
       );
+
+      // Ensure z-component is zero
+      dragVector.z = 0;
 
       const direction = dragVector
         .clone()
@@ -265,21 +270,54 @@ const Game: React.FC = () => {
         .normalize()
         .multiplyScalar(BALL_SPEED);
 
+      // Ensure z-component is zero
+      direction.z = 0;
+
       startTurn(direction);
     },
-    [BALL_SPEED, GAME_WIDTH, GAME_HEIGHT]
+    [BALL_SPEED]
   );
+
+  const resetCamera = () => {
+    // Set the target camera position and rotation to the initial values
+    cameraTargetPositionRef.current.copy(initialCameraPositionRef.current);
+    cameraTargetQuaternionRef.current.copy(initialCameraQuaternionRef.current);
+  };
 
   const startTurn = (direction: THREE.Vector3) => {
     totalBallsThisTurnRef.current = ballsRef.current.length;
     returnedBallsCount.current = 0;
 
     let ballIndex = 0;
+
+    // Randomly select a ball to follow
+    const randomBallIndex = Math.floor(Math.random() * ballsRef.current.length);
+    ballToFollowRef.current = ballsRef.current[randomBallIndex];
+
+    // Set initial camera target position and rotation to current camera state
+    const camera = cameraRef.current!;
+    cameraTargetPositionRef.current.copy(camera.position);
+    cameraTargetQuaternionRef.current.copy(camera.quaternion);
+
+    // Compute initial orbit angle based on camera's current position relative to the ball
+    const ballPosition = ballToFollowRef.current.position;
+    const cameraPosition = camera.position;
+    const offset = new THREE.Vector3().subVectors(cameraPosition, ballPosition);
+    const angle = Math.atan2(offset.y, offset.x);
+    cameraOrbitAngleRef.current = angle;
+
+    // Reset positions of all balls to starting position
+    ballsRef.current.forEach((ball) => {
+      ball.position.copy(startPositionRef.current);
+      ball.position.z = 0; // Ensure z is zero
+    });
+
     const launchNext = () => {
       if (ballIndex >= totalBallsThisTurnRef.current) return;
 
       const ball = ballsRef.current[ballIndex];
       ball.position.copy(startPositionRef.current);
+      ball.position.z = 0; // Ensure z is zero
       ball.userData.velocity = direction.clone();
       ball.userData.active = true;
 
@@ -290,27 +328,50 @@ const Game: React.FC = () => {
     launchNext();
   };
 
+  useEffect(() => {
+    initGame();
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      cancelAnimationFrame(requestRef.current!);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const updateGame = () => {
     // Update each ball
     ballsRef.current.forEach((ball) => {
-      if (!ball.userData.active) return;
+      if (!ball.userData.active) {
+        // Ensure inactive balls are at the starting position
+        ball.position.copy(startPositionRef.current);
+        ball.position.z = 0; // Ensure z is zero
+        return;
+      }
 
       // Move ball based on velocity
       ball.position.add(ball.userData.velocity);
 
+      // Ensure z-component remains zero
+      ball.position.z = 0;
+
       // Check wall collisions
-      if (ball.position.x <= -GAME_WIDTH / 2 + BALL_RADIUS ||
-          ball.position.x >= GAME_WIDTH / 2 - BALL_RADIUS) {
+      if (
+        ball.position.x <= -GAME_WIDTH / 2 + BALL_RADIUS ||
+        ball.position.x >= GAME_WIDTH / 2 - BALL_RADIUS
+      ) {
         ball.userData.velocity.x *= -1;
       }
       if (ball.position.y >= GAME_HEIGHT / 2 - BALL_RADIUS) {
         ball.userData.velocity.y *= -1;
       }
 
+      // Ensure velocity z-component remains zero
+      ball.userData.velocity.z = 0;
+
       // Check if ball has returned to bottom
       if (ball.position.y <= -GAME_HEIGHT / 2 + BALL_RADIUS) {
         ball.userData.active = false;
         ball.position.copy(startPositionRef.current);
+        ball.position.z = 0; // Ensure z is zero
         returnedBallsCount.current++;
 
         // If all balls have returned, end the turn
@@ -343,15 +404,94 @@ const Game: React.FC = () => {
             const normal = new THREE.Vector3()
               .subVectors(ball.position, block.position)
               .normalize();
+
+            // Ensure normal is in x-y plane
+            normal.z = 0;
+            normal.normalize();
+
             ball.userData.velocity.reflect(normal);
+
+            // Ensure velocity z-component remains zero after reflection
+            ball.userData.velocity.z = 0;
           }
         }
       });
     });
+
+    // Update camera to follow the ball
+    const camera = cameraRef.current!;
+    if (turnInProgressRef.current) {
+      if (ballToFollowRef.current && ballToFollowRef.current.userData.active) {
+        const ballPosition = ballToFollowRef.current.position;
+
+        // Update camera orbit angle
+        cameraOrbitAngleRef.current += 0.01; // Increase for faster rotation
+
+        // Calculate dynamic radius for zoom effect
+        const time = Date.now() * 0.001;
+        const baseRadius = 10; // Base distance from the ball
+        const radiusVariation = Math.sin(time * 0.5) * 3; // Adjust amplitude and frequency
+        const dynamicRadius = baseRadius + radiusVariation;
+
+        // Add some vertical movement for more dynamic effect
+        const verticalOffset = Math.sin(time * 0.3) * 2;
+
+        const angle = cameraOrbitAngleRef.current;
+
+        const offsetX = dynamicRadius * Math.cos(angle);
+        const offsetY = dynamicRadius * Math.sin(angle);
+        const offsetZ = verticalOffset; // Vertical offset
+
+        const desiredCameraPosition = new THREE.Vector3(
+          ballPosition.x + offsetX,
+          ballPosition.y + offsetY,
+          ballPosition.z + offsetZ
+        );
+
+        // Update target camera position
+        cameraTargetPositionRef.current.copy(desiredCameraPosition);
+
+        // Compute desired rotation to look at the ball
+        const tempCamera = tempCameraRef.current;
+        tempCamera.position.copy(cameraTargetPositionRef.current);
+        tempCamera.lookAt(ballPosition);
+        cameraTargetQuaternionRef.current.copy(tempCamera.quaternion);
+      } else {
+        // The ball we're following is no longer active
+        // Find another active ball to follow
+        const activeBalls = ballsRef.current.filter(
+          (ball) => ball.userData.active
+        );
+        if (activeBalls.length > 0) {
+          // Randomly select another ball to follow
+          const randomIndex = Math.floor(Math.random() * activeBalls.length);
+          ballToFollowRef.current = activeBalls[randomIndex];
+        } else {
+          // No active balls left, reset camera
+          resetCamera();
+        }
+      }
+    }
+
+    // Determine lerpFactor based on whether the camera is following the ball or resetting
+    let lerpFactor = 0.05; // For following the ball
+    if (!turnInProgressRef.current) {
+      lerpFactor = 0.1; // Slightly higher for a smoother reset
+    }
+
+    // Interpolate camera position towards target
+    camera.position.lerp(cameraTargetPositionRef.current, lerpFactor);
+
+    // Interpolate camera rotation towards target
+    camera.quaternion.slerp(cameraTargetQuaternionRef.current, lerpFactor);
   };
 
   const endTurn = () => {
     turnInProgressRef.current = false;
+
+    // Reset camera when the turn ends
+    resetCamera();
+
     moveBlocksDown();
     createNewRowOfBlocks();
     setTurn((prev) => prev + 1);
@@ -401,7 +541,6 @@ const Game: React.FC = () => {
     topWall.position.set(0, GAME_HEIGHT / 2 - wallThickness / 2, 0);
     sceneRef.current.add(topWall);
   };
-
 
   const createNewRowOfBlocks = () => {
     for (let x = -4; x <= 4; x += 2) {
