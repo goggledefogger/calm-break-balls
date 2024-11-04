@@ -38,6 +38,18 @@ const Game: React.FC = () => {
 
   const ballToFollowRef = useRef<THREE.Mesh | null>(null); // Properly defined
 
+  const lastBallVelocityRef = useRef<THREE.Vector3>(new THREE.Vector3());
+  const targetZoomRef = useRef<number>(25); // Default zoom distance
+  const minZoomRef = useRef<number>(10); // More extreme minimum zoom (closer)
+  const maxZoomRef = useRef<number>(60); // More extreme maximum zoom (further)
+  const cameraRotationRef = useRef<number>(0); // Track camera rotation
+
+  const consecutiveHitsRef = useRef<number>(0);
+
+  const cameraRollRef = useRef<number>(0);
+  const cameraPitchRef = useRef<number>(0);
+  const cameraYawRef = useRef<number>(0);
+
   const {
     BALL_RADIUS,
     BLOCK_SIZE,
@@ -296,7 +308,15 @@ const Game: React.FC = () => {
   );
 
   const resetCamera = () => {
-    // Smoothly transition the camera back to its initial position and orientation
+    // Reset all camera rotations
+    cameraRollRef.current = 0;
+    cameraPitchRef.current = 0;
+    cameraYawRef.current = 0;
+
+    // Reset the target zoom with a slight random variation
+    const randomZoom = 25 + (Math.random() - 0.5) * 5;
+    targetZoomRef.current = randomZoom;
+
     gsap.to(cameraRef.current!.position, {
       x: initialCameraPositionRef.current.x,
       y: initialCameraPositionRef.current.y,
@@ -304,11 +324,13 @@ const Game: React.FC = () => {
       duration: 1.5,
       ease: "power2.inOut",
       onUpdate: () => {
-        // Create a smoothed look-at transition
+        // Reset camera up vector
+        cameraRef.current!.up.set(0, 1, 0);
+
         const currentLookTarget = new THREE.Vector3();
         cameraRef.current!.getWorldDirection(currentLookTarget);
         const desiredLookTarget = new THREE.Vector3()
-          .subVectors(new THREE.Vector3(0, -GAME_HEIGHT / 4, 0), cameraRef.current!.position) // Modified target point
+          .subVectors(new THREE.Vector3(0, -GAME_HEIGHT / 4, 0), cameraRef.current!.position)
           .normalize();
 
         currentLookTarget.lerp(desiredLookTarget, 0.015);
@@ -318,8 +340,8 @@ const Game: React.FC = () => {
       },
     });
 
-    // Reset the reference to the followed ball
     ballToFollowRef.current = null;
+    lastBallVelocityRef.current.set(0, 0, 0);
   };
 
   const startTurn = (direction: THREE.Vector3) => {
@@ -455,14 +477,79 @@ const Game: React.FC = () => {
     if (turnInProgressRef.current) {
       if (ballToFollowRef.current && ballToFollowRef.current.userData.active) {
         const ballPosition = ballToFollowRef.current.position;
+        const ballVelocity = (ballToFollowRef.current.userData as any).velocity;
+        const time = clockRef.current.getElapsedTime();
 
-        // Define a desired camera offset (e.g., above and behind the ball)
-        const desiredOffset = new THREE.Vector3(0, -5, 10);
+        // Calculate factors that influence zoom
+        const velocityChange = lastBallVelocityRef.current.distanceTo(ballVelocity);
+        const distanceFromCenter = ballPosition.length();
+        const heightFactor = Math.abs(ballPosition.y) / (GAME_HEIGHT / 2);
+
+        // Update last velocity for next frame
+        lastBallVelocityRef.current.copy(ballVelocity);
+
+        // Calculate target zoom based on multiple factors with enhanced ranges
+        const baseZoom = 25;
+        const velocityZoom = velocityChange * 20; // More dramatic velocity zoom
+        const positionZoom = distanceFromCenter * 1.2; // More dramatic position zoom
+        const heightZoom = heightFactor * 12; // More dramatic height zoom
+
+        // Add dynamic zoom effects based on game state
+        const blockProximityZoom = blocksRef.current.reduce((zoom, block) => {
+          const distance = ballPosition.distanceTo(block.position);
+          // Zoom in more when close to blocks
+          return distance < 4 ? zoom - (4 - distance) * 3 : zoom;
+        }, 0);
+
+        // Calculate new target zoom with enhanced ranges
+        let newTargetZoom = baseZoom + velocityZoom + positionZoom + heightZoom + blockProximityZoom;
+
+        // Add subtle oscillation to the camera (using the time variable declared above)
+        const oscillation = Math.sin(time * 1.5) * 1;
+        newTargetZoom += oscillation;
+
+        // Clamp the zoom value between min and max
+        newTargetZoom = Math.max(minZoomRef.current, Math.min(maxZoomRef.current, newTargetZoom));
+
+        // Smoothly adjust target zoom with variable lerp factor
+        const zoomDifference = Math.abs(newTargetZoom - targetZoomRef.current);
+        const zoomLerpFactor = Math.min(0.02 + (zoomDifference * 0.002), 0.04);
+        targetZoomRef.current += (newTargetZoom - targetZoomRef.current) * zoomLerpFactor;
+
+        // Calculate dynamic offset based on current zoom with enhanced vertical offset
+        const zoomFactor = targetZoomRef.current / baseZoom;
+        const verticalOffset = -5 * Math.pow(zoomFactor, 1.1); // Slightly reduced vertical scaling
+
+        // Calculate camera rotations based on ball movement and time
+        const rollTarget = (ballVelocity.x * 0.08) + Math.sin(time * 0.8) * 0.04; // Increased roll sensitivity
+        const pitchTarget = (ballVelocity.y * 0.05) + Math.sin(time * 0.5) * 0.03; // Increased pitch sensitivity
+        const yawTarget = Math.sin(time * 0.3) * 0.05; // Increased yaw oscillation
+
+        // Smoothly interpolate rotations (slightly faster response)
+        cameraRollRef.current += (rollTarget - cameraRollRef.current) * 0.015;
+        cameraPitchRef.current += (pitchTarget - cameraPitchRef.current) * 0.015;
+        cameraYawRef.current += (yawTarget - cameraYawRef.current) * 0.015;
+
+        // Clamp rotation values with wider ranges
+        cameraRollRef.current = THREE.MathUtils.clamp(cameraRollRef.current, -0.2, 0.2);    // Was -0.1 to 0.1
+        cameraPitchRef.current = THREE.MathUtils.clamp(cameraPitchRef.current, -0.15, 0.15); // Was -0.08 to 0.08
+        cameraYawRef.current = THREE.MathUtils.clamp(cameraYawRef.current, -0.1, 0.1);      // Was -0.05 to 0.05
+
+        // Calculate rotated offset with all three rotations
+        const rotatedOffset = new THREE.Vector3(
+          Math.sin(cameraYawRef.current) * 3,
+          verticalOffset + Math.sin(cameraPitchRef.current) * 5,
+          targetZoomRef.current
+        );
+
+        // Apply roll rotation matrix
+        const rollMatrix = new THREE.Matrix4().makeRotationZ(cameraRollRef.current);
+        rotatedOffset.applyMatrix4(rollMatrix);
 
         // Calculate the desired camera position relative to the ball
         const desiredCameraPosition = new THREE.Vector3().addVectors(
           ballPosition,
-          desiredOffset
+          rotatedOffset
         );
 
         // Use slower lerp factor for smoother camera movement
@@ -471,12 +558,23 @@ const Game: React.FC = () => {
         // Update the camera's position with the same lerp factor
         camera.position.lerp(cameraTargetPositionRef.current, 0.015);
 
-        // Create a smoothed look-at target
+        // Create a smoothed look-at target with rotation offsets
         const currentLookTarget = new THREE.Vector3();
         camera.getWorldDirection(currentLookTarget);
         const desiredLookTarget = new THREE.Vector3()
           .subVectors(ballPosition, camera.position)
           .normalize();
+
+        // Add rotation-based offsets to look target
+        desiredLookTarget.x += cameraYawRef.current * 0.5;
+        desiredLookTarget.y += cameraPitchRef.current * 0.5;
+
+        // Apply roll to the up vector
+        const rollQuaternion = new THREE.Quaternion().setFromAxisAngle(
+          new THREE.Vector3(0, 0, 1),
+          cameraRollRef.current
+        );
+        camera.up.set(0, 1, 0).applyQuaternion(rollQuaternion);
 
         // Smoothly interpolate the camera's look direction
         currentLookTarget.lerp(desiredLookTarget, 0.015);
