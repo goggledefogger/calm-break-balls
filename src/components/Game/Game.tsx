@@ -64,11 +64,11 @@ const Game: React.FC = () => {
     const scene = sceneRef.current;
     scene.background = new THREE.Color(0x1a202c);
 
-    // Initialize the camera
+    // Initialize the camera with adjusted position
     const aspect = window.innerWidth / window.innerHeight;
     const camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
-    camera.position.set(0, -GAME_HEIGHT / 2 + 5, 20); // Positioned slightly above and behind the start
-    camera.lookAt(new THREE.Vector3(0, 0, 0)); // Always look towards the center
+    camera.position.set(0, -GAME_HEIGHT / 2 + 8, 25); // Modified position
+    camera.lookAt(new THREE.Vector3(0, 0, 0));
     cameraRef.current = camera;
 
     // Store the initial camera position
@@ -283,7 +283,7 @@ const Game: React.FC = () => {
         const currentLookTarget = new THREE.Vector3();
         cameraRef.current!.getWorldDirection(currentLookTarget);
         const desiredLookTarget = new THREE.Vector3()
-          .subVectors(new THREE.Vector3(0, 0, 0), cameraRef.current!.position)
+          .subVectors(new THREE.Vector3(0, -GAME_HEIGHT / 4, 0), cameraRef.current!.position) // Modified target point
           .normalize();
 
         currentLookTarget.lerp(desiredLookTarget, 0.015);
