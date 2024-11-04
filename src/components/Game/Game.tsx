@@ -32,13 +32,11 @@ const Game: React.FC = () => {
   const isAimingRef = useRef<boolean>(false);
 
   const initialCameraPositionRef = useRef<THREE.Vector3>(new THREE.Vector3());
-  const initialCameraQuaternionRef = useRef(new THREE.Quaternion());
-  const cameraTargetQuaternionRef = useRef(new THREE.Quaternion());
-  const tempCameraRef = useRef(new THREE.PerspectiveCamera());
-  const ballToFollowRef = useRef<THREE.Mesh>();
+  const cameraTargetPositionRef = useRef<THREE.Vector3>(new THREE.Vector3());
 
-  const cameraTargetPositionRef = useRef(new THREE.Vector3());
-  const cameraOrbitAngleRef = useRef(0);
+  const clockRef = useRef(new THREE.Clock());
+
+  const ballToFollowRef = useRef<THREE.Mesh | null>(null); // Properly defined
 
   const {
     BALL_RADIUS,
@@ -69,17 +67,13 @@ const Game: React.FC = () => {
     // Initialize the camera
     const aspect = window.innerWidth / window.innerHeight;
     const camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
-    camera.position.set(0, -GAME_HEIGHT / 2 + 5, 20);
-    camera.lookAt(new THREE.Vector3(0, 0, 0));
+    camera.position.set(0, -GAME_HEIGHT / 2 + 5, 20); // Positioned slightly above and behind the start
+    camera.lookAt(new THREE.Vector3(0, 0, 0)); // Always look towards the center
     cameraRef.current = camera;
 
-    // Store the initial camera position and quaternion
+    // Store the initial camera position
     initialCameraPositionRef.current.copy(camera.position);
-    initialCameraQuaternionRef.current.copy(camera.quaternion);
-
-    // Set initial camera target position and rotation
     cameraTargetPositionRef.current.copy(camera.position);
-    cameraTargetQuaternionRef.current.copy(camera.quaternion);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     containerRef.current!.appendChild(renderer.domElement);
@@ -91,8 +85,6 @@ const Game: React.FC = () => {
 
     // Call handleResize to set initial size and camera frustum
     handleResize();
-    containerRef.current!.appendChild(renderer.domElement);
-    rendererRef.current = renderer;
 
     // Basic lighting
     scene.add(new THREE.AmbientLight(0xffffff, 0.5));
@@ -279,9 +271,30 @@ const Game: React.FC = () => {
   );
 
   const resetCamera = () => {
-    // Set the target camera position and rotation to the initial values
-    cameraTargetPositionRef.current.copy(initialCameraPositionRef.current);
-    cameraTargetQuaternionRef.current.copy(initialCameraQuaternionRef.current);
+    // Smoothly transition the camera back to its initial position and orientation
+    gsap.to(cameraRef.current!.position, {
+      x: initialCameraPositionRef.current.x,
+      y: initialCameraPositionRef.current.y,
+      z: initialCameraPositionRef.current.z,
+      duration: 1.5,
+      ease: "power2.inOut",
+      onUpdate: () => {
+        // Create a smoothed look-at transition
+        const currentLookTarget = new THREE.Vector3();
+        cameraRef.current!.getWorldDirection(currentLookTarget);
+        const desiredLookTarget = new THREE.Vector3()
+          .subVectors(new THREE.Vector3(0, 0, 0), cameraRef.current!.position)
+          .normalize();
+
+        currentLookTarget.lerp(desiredLookTarget, 0.015);
+        cameraRef.current!.lookAt(
+          cameraRef.current!.position.clone().add(currentLookTarget.multiplyScalar(10))
+        );
+      },
+    });
+
+    // Reset the reference to the followed ball
+    ballToFollowRef.current = null;
   };
 
   const startTurn = (direction: THREE.Vector3) => {
@@ -293,18 +306,6 @@ const Game: React.FC = () => {
     // Randomly select a ball to follow
     const randomBallIndex = Math.floor(Math.random() * ballsRef.current.length);
     ballToFollowRef.current = ballsRef.current[randomBallIndex];
-
-    // Set initial camera target position and rotation to current camera state
-    const camera = cameraRef.current!;
-    cameraTargetPositionRef.current.copy(camera.position);
-    cameraTargetQuaternionRef.current.copy(camera.quaternion);
-
-    // Compute initial orbit angle based on camera's current position relative to the ball
-    const ballPosition = ballToFollowRef.current.position;
-    const cameraPosition = camera.position;
-    const offset = new THREE.Vector3().subVectors(cameraPosition, ballPosition);
-    const angle = Math.atan2(offset.y, offset.x);
-    cameraOrbitAngleRef.current = angle;
 
     // Reset positions of all balls to starting position
     ballsRef.current.forEach((ball) => {
@@ -424,38 +425,33 @@ const Game: React.FC = () => {
       if (ballToFollowRef.current && ballToFollowRef.current.userData.active) {
         const ballPosition = ballToFollowRef.current.position;
 
-        // Update camera orbit angle
-        cameraOrbitAngleRef.current += 0.01; // Increase for faster rotation
+        // Define a desired camera offset (e.g., above and behind the ball)
+        const desiredOffset = new THREE.Vector3(0, -5, 10);
 
-        // Calculate dynamic radius for zoom effect
-        const time = Date.now() * 0.001;
-        const baseRadius = 10; // Base distance from the ball
-        const radiusVariation = Math.sin(time * 0.5) * 3; // Adjust amplitude and frequency
-        const dynamicRadius = baseRadius + radiusVariation;
-
-        // Add some vertical movement for more dynamic effect
-        const verticalOffset = Math.sin(time * 0.3) * 2;
-
-        const angle = cameraOrbitAngleRef.current;
-
-        const offsetX = dynamicRadius * Math.cos(angle);
-        const offsetY = dynamicRadius * Math.sin(angle);
-        const offsetZ = verticalOffset; // Vertical offset
-
-        const desiredCameraPosition = new THREE.Vector3(
-          ballPosition.x + offsetX,
-          ballPosition.y + offsetY,
-          ballPosition.z + offsetZ
+        // Calculate the desired camera position relative to the ball
+        const desiredCameraPosition = new THREE.Vector3().addVectors(
+          ballPosition,
+          desiredOffset
         );
 
-        // Update target camera position
-        cameraTargetPositionRef.current.copy(desiredCameraPosition);
+        // Use slower lerp factor for smoother camera movement
+        cameraTargetPositionRef.current.lerp(desiredCameraPosition, 0.015);
 
-        // Compute desired rotation to look at the ball
-        const tempCamera = tempCameraRef.current;
-        tempCamera.position.copy(cameraTargetPositionRef.current);
-        tempCamera.lookAt(ballPosition);
-        cameraTargetQuaternionRef.current.copy(tempCamera.quaternion);
+        // Update the camera's position with the same lerp factor
+        camera.position.lerp(cameraTargetPositionRef.current, 0.015);
+
+        // Create a smoothed look-at target
+        const currentLookTarget = new THREE.Vector3();
+        camera.getWorldDirection(currentLookTarget);
+        const desiredLookTarget = new THREE.Vector3()
+          .subVectors(ballPosition, camera.position)
+          .normalize();
+
+        // Smoothly interpolate the camera's look direction
+        currentLookTarget.lerp(desiredLookTarget, 0.015);
+        camera.lookAt(
+          camera.position.clone().add(currentLookTarget.multiplyScalar(10))
+        );
       } else {
         // The ball we're following is no longer active
         // Find another active ball to follow
@@ -463,9 +459,28 @@ const Game: React.FC = () => {
           (ball) => ball.userData.active
         );
         if (activeBalls.length > 0) {
-          // Randomly select another ball to follow
-          const randomIndex = Math.floor(Math.random() * activeBalls.length);
-          ballToFollowRef.current = activeBalls[randomIndex];
+          // If we already have a ball to follow, smoothly transition to the new one
+          if (ballToFollowRef.current) {
+            const newBall = activeBalls[Math.floor(Math.random() * activeBalls.length)];
+
+            // Use GSAP for smooth transition between balls
+            const startPos = ballToFollowRef.current.position.clone();
+            const endPos = newBall.position.clone();
+
+            gsap.to(cameraTargetPositionRef.current, {
+              x: endPos.x,
+              y: endPos.y,
+              z: endPos.z,
+              duration: 0.5,
+              ease: "power2.out"
+            });
+
+            // Update the ball reference after starting the transition
+            ballToFollowRef.current = newBall;
+          } else {
+            // If we don't have a ball to follow, just pick one
+            ballToFollowRef.current = activeBalls[Math.floor(Math.random() * activeBalls.length)];
+          }
         } else {
           // No active balls left, reset camera
           resetCamera();
@@ -473,17 +488,8 @@ const Game: React.FC = () => {
       }
     }
 
-    // Determine lerpFactor based on whether the camera is following the ball or resetting
-    let lerpFactor = 0.05; // For following the ball
-    if (!turnInProgressRef.current) {
-      lerpFactor = 0.1; // Slightly higher for a smoother reset
-    }
-
-    // Interpolate camera position towards target
-    camera.position.lerp(cameraTargetPositionRef.current, lerpFactor);
-
-    // Interpolate camera rotation towards target
-    camera.quaternion.slerp(cameraTargetQuaternionRef.current, lerpFactor);
+    // Optionally, add subtle zoom effects or slight positional shifts here
+    // For example, using GSAP to animate zoom
   };
 
   const endTurn = () => {
