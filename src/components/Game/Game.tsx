@@ -102,11 +102,20 @@ const Game: React.FC = () => {
     // Call handleResize to set initial size and camera frustum
     handleResize();
 
-    // Basic lighting
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+    // Enhanced lighting
+    scene.add(new THREE.AmbientLight(0x404040, 0.8));
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
     dirLight.position.set(10, 10, 5);
+    dirLight.castShadow = true;
     scene.add(dirLight);
+
+    const pointLight = new THREE.PointLight(0xff6600, 0.8, 20);
+    pointLight.position.set(0, 0, 5);
+    scene.add(pointLight);
+
+    // Add subtle fog for depth
+    scene.fog = new THREE.Fog(0x1a202c, 15, 50);
 
     // Aim line
     const aimLineMaterial = new THREE.LineBasicMaterial({ color: 0xffff00 });
@@ -485,6 +494,17 @@ const Game: React.FC = () => {
           }
         }
       });
+
+      // Update ball trail
+      const trailPoints = ball.userData.trailPoints;
+      const trailIndex = ball.userData.trailIndex;
+
+      trailPoints[trailIndex * 3] = ball.position.x;
+      trailPoints[trailIndex * 3 + 1] = ball.position.y;
+      trailPoints[trailIndex * 3 + 2] = ball.position.z;
+
+      ball.userData.trailIndex = (trailIndex + 1) % (trailPoints.length / 3);
+      ball.userData.trail.geometry.attributes.position.needsUpdate = true;
     });
 
     // Update camera to follow the ball
