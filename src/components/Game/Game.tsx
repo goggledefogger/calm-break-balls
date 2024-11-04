@@ -308,8 +308,23 @@ const Game: React.FC = () => {
   );
 
   const resetCamera = () => {
-    // Reset all camera rotations
-    cameraRollRef.current = 0;
+    // Smoothly reset roll to 0 through the shortest path
+    const currentRoll = cameraRollRef.current;
+    const targetRoll = 0;
+
+    // Calculate shortest rotation path
+    let rollDiff = targetRoll - currentRoll;
+    if (Math.abs(rollDiff) > Math.PI) {
+      rollDiff -= Math.sign(rollDiff) * Math.PI * 2;
+    }
+
+    gsap.to(cameraRollRef, {
+      current: currentRoll + rollDiff,
+      duration: 1.5,
+      ease: "power2.inOut"
+    });
+
+    // Reset other camera properties
     cameraPitchRef.current = 0;
     cameraYawRef.current = 0;
 
@@ -521,19 +536,21 @@ const Game: React.FC = () => {
         const verticalOffset = -5 * Math.pow(zoomFactor, 1.1); // Slightly reduced vertical scaling
 
         // Calculate camera rotations based on ball movement and time
-        const rollTarget = (ballVelocity.x * 0.08) + Math.sin(time * 0.8) * 0.04; // Increased roll sensitivity
-        const pitchTarget = (ballVelocity.y * 0.05) + Math.sin(time * 0.5) * 0.03; // Increased pitch sensitivity
-        const yawTarget = Math.sin(time * 0.3) * 0.05; // Increased yaw oscillation
+        const rollTarget = (ballVelocity.x * 0.15) + Math.sin(time * 0.8) * 0.08; // Keep roll as is
+        const pitchTarget = (ballVelocity.y * 0.12) + Math.sin(time * 0.5) * 0.06; // Increased pitch sensitivity
+        const yawTarget = (ballVelocity.x * 0.08) + Math.sin(time * 0.3) * 0.08; // Added velocity influence and increased yaw
 
-        // Smoothly interpolate rotations (slightly faster response)
-        cameraRollRef.current += (rollTarget - cameraRollRef.current) * 0.015;
-        cameraPitchRef.current += (pitchTarget - cameraPitchRef.current) * 0.015;
-        cameraYawRef.current += (yawTarget - cameraYawRef.current) * 0.015;
+        // Smoothly interpolate rotations (faster response for more dynamic movement)
+        cameraRollRef.current += (rollTarget - cameraRollRef.current) * 0.02;
+        cameraPitchRef.current += (pitchTarget - cameraPitchRef.current) * 0.02; // Faster pitch response
+        cameraYawRef.current += (yawTarget - cameraYawRef.current) * 0.02; // Faster yaw response
 
-        // Clamp rotation values with wider ranges
-        cameraRollRef.current = THREE.MathUtils.clamp(cameraRollRef.current, -0.2, 0.2);    // Was -0.1 to 0.1
-        cameraPitchRef.current = THREE.MathUtils.clamp(cameraPitchRef.current, -0.15, 0.15); // Was -0.08 to 0.08
-        cameraYawRef.current = THREE.MathUtils.clamp(cameraYawRef.current, -0.1, 0.1);      // Was -0.05 to 0.05
+        // Normalize roll angle to keep it between -PI and PI for smoother transitions
+        cameraRollRef.current = ((cameraRollRef.current + Math.PI) % (Math.PI * 2)) - Math.PI;
+
+        // Increased ranges for pitch and yaw
+        cameraPitchRef.current = THREE.MathUtils.clamp(cameraPitchRef.current, -0.3, 0.3);  // Was -0.15 to 0.15
+        cameraYawRef.current = THREE.MathUtils.clamp(cameraYawRef.current, -0.25, 0.25);    // Was -0.1 to 0.1
 
         // Calculate rotated offset with all three rotations
         const rotatedOffset = new THREE.Vector3(
