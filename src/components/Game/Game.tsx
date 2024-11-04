@@ -9,7 +9,7 @@ import { createBall } from "../Ball/Ball";
 import { createBlock, handleBlockCollision } from "../Block/Block";
 import { createPowerUp } from "../PowerUp/PowerUp";
 import ScoreBoard from "../ScoreBoard/ScoreBoard";
-import PauseButton from "../PauseButton/PauseButton";
+import TurboButton from "../TurboButton/TurboButton";
 import GameOver from "../GameOver/GameOver";
 import styles from "./Game.module.css";
 import gsap from "gsap";
@@ -44,6 +44,7 @@ const Game: React.FC = () => {
     GAME_WIDTH,
     GAME_HEIGHT,
     BALL_SPEED,
+    TURBO_MULTIPLIER,
     MAX_AIM_LENGTH,
     POWER_UP_CHANCE,
   } = GAME_SETTINGS;
@@ -58,6 +59,9 @@ const Game: React.FC = () => {
     isPaused,
     isGameOver,
     setIsGameOver,
+    isTurbo,
+    setTurnInProgress,
+    setIsTurbo,
   } = useContext(GameContext)!;
 
   const initGame = () => {
@@ -235,6 +239,8 @@ const Game: React.FC = () => {
 
       isAimingRef.current = false;
       turnInProgressRef.current = true;
+      setTurnInProgress(true);
+      setIsTurbo(false);
 
       // Clear aim line
       aimLineRef.current!.geometry.setAttribute(
@@ -256,18 +262,37 @@ const Game: React.FC = () => {
       // Ensure z-component is zero
       dragVector.z = 0;
 
-      const direction = dragVector
-        .clone()
-        .negate()
-        .normalize()
-        .multiplyScalar(BALL_SPEED);
-
-      // Ensure z-component is zero
+      // Set initial velocity based on drag direction only, not speed
+      const direction = dragVector.clone().negate().normalize();
       direction.z = 0;
 
-      startTurn(direction);
+      // Store normalized direction as velocity
+      const initialVelocity = direction.clone();
+
+      totalBallsThisTurnRef.current = ballsRef.current.length;
+      returnedBallsCount.current = 0;
+
+      // Set up first ball to follow
+      ballToFollowRef.current = ballsRef.current[0];
+
+      let ballIndex = 0;
+
+      const launchNext = () => {
+        if (ballIndex >= totalBallsThisTurnRef.current) return;
+
+        const ball = ballsRef.current[ballIndex];
+        ball.position.copy(startPositionRef.current);
+        ball.position.z = 0;
+        ball.userData.velocity = initialVelocity.clone();
+        ball.userData.active = true;
+
+        ballIndex++;
+        setTimeout(launchNext, 100);
+      };
+
+      launchNext();
     },
-    [BALL_SPEED]
+    [setTurnInProgress, setIsTurbo]
   );
 
   const resetCamera = () => {
@@ -300,8 +325,8 @@ const Game: React.FC = () => {
   const startTurn = (direction: THREE.Vector3) => {
     totalBallsThisTurnRef.current = ballsRef.current.length;
     returnedBallsCount.current = 0;
-
-    let ballIndex = 0;
+    turnInProgressRef.current = true;
+    setTurnInProgress(true);
 
     // Randomly select a ball to follow
     const randomBallIndex = Math.floor(Math.random() * ballsRef.current.length);
@@ -312,6 +337,8 @@ const Game: React.FC = () => {
       ball.position.copy(startPositionRef.current);
       ball.position.z = 0; // Ensure z is zero
     });
+
+    let ballIndex = 0; // Add this line to declare ballIndex
 
     const launchNext = () => {
       if (ballIndex >= totalBallsThisTurnRef.current) return;
@@ -348,8 +375,12 @@ const Game: React.FC = () => {
         return;
       }
 
-      // Move ball based on velocity
-      ball.position.add(ball.userData.velocity);
+      // Calculate current speed including turbo if active
+      const currentSpeed = BALL_SPEED * (isTurbo ? TURBO_MULTIPLIER : 1);
+
+      // Create movement vector from stored velocity direction and current speed
+      const movement = ball.userData.velocity.clone().multiplyScalar(currentSpeed);
+      ball.position.add(movement);
 
       // Ensure z-component remains zero
       ball.position.z = 0;
@@ -494,6 +525,10 @@ const Game: React.FC = () => {
 
   const endTurn = () => {
     turnInProgressRef.current = false;
+    setTurnInProgress(false);
+
+    // Reset turbo state at the end of each turn
+    setIsTurbo(false);
 
     // Reset camera when the turn ends
     resetCamera();
@@ -574,7 +609,7 @@ const Game: React.FC = () => {
       onPointerUp={handlePointerUp}>
       <div ref={containerRef} className={styles.canvasContainer} />
       <ScoreBoard />
-      <PauseButton />
+      <TurboButton />
     </div>
   );
 };

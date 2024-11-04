@@ -1,0 +1,23 @@
+/* Rename to TurboButton.module.css */
+.turboButton {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  padding: 10px;
+  background-color: rgba(255, 69, 0, 0.7);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s ease;
+}
+
+.turboButton:hover:not(.disabled) {
+  background-color: rgba(255, 69, 0, 0.9);
+}
+
+.disabled {
+  background-color: rgba(128, 128, 128, 0.7);
+  cursor: not-allowed;
+}

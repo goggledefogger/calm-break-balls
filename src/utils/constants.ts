@@ -5,7 +5,8 @@ export const GAME_SETTINGS = {
   BLOCK_SIZE: 1,
   GAME_WIDTH: 10,
   GAME_HEIGHT: 15,
-  BALL_SPEED: 0.125, // Adjusted for slower speed
+  BALL_SPEED: 0.125, // Base speed
+  TURBO_MULTIPLIER: 3, // Added constant for turbo speed multiplier
   MAX_AIM_LENGTH: 5,
   POWER_UP_CHANCE: 0.2,
 };

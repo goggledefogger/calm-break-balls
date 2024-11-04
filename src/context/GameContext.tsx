@@ -13,6 +13,10 @@ interface GameContextProps {
   setIsPaused: React.Dispatch<React.SetStateAction<boolean>>;
   isGameOver: boolean;
   setIsGameOver: React.Dispatch<React.SetStateAction<boolean>>;
+  isTurbo: boolean;
+  setIsTurbo: React.Dispatch<React.SetStateAction<boolean>>;
+  turnInProgress: boolean;
+  setTurnInProgress: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export const GameContext = createContext<GameContextProps | undefined>(
@@ -29,6 +33,8 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
   const [turn, setTurn] = useState<number>(1);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [isGameOver, setIsGameOver] = useState<boolean>(false);
+  const [isTurbo, setIsTurbo] = useState<boolean>(false);
+  const [turnInProgress, setTurnInProgress] = useState<boolean>(false);
 
   return (
     <GameContext.Provider
@@ -43,6 +49,10 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
         setIsPaused,
         isGameOver,
         setIsGameOver,
+        isTurbo,
+        setIsTurbo,
+        turnInProgress,
+        setTurnInProgress,
       }}>
       {children}
     </GameContext.Provider>
