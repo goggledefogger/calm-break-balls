@@ -262,17 +262,44 @@ const GameCanvas: React.FC = () => {
   };
 
   const createInitialBlocks = () => {
-    for (let x = -4; x <= 4; x += 2) {
-      for (let y = 2; y <= 4; y += 2) {
-        if (Math.random() < POWER_UP_CHANCE) {
-          const powerUp = createPowerUp(x, y);
-          sceneRef.current.add(powerUp);
-          blocksRef.current.push(powerUp);
-        } else {
-          const block = createBlock(x, y, turn);
-          sceneRef.current.add(block);
-          blocksRef.current.push(block);
-        }
+    // Calculate grid dimensions with spacing
+    const spacing = BLOCK_SIZE * 0.1; // 10% of block size for spacing
+    const effectiveBlockSize = BLOCK_SIZE + spacing;
+
+    // Calculate number of blocks that fit between walls with spacing
+    const gridWidth = Math.floor((GAME_WIDTH - spacing) / effectiveBlockSize) - 1;
+    const gridHeight = Math.floor(GAME_HEIGHT / 2 / effectiveBlockSize);
+
+    // Calculate starting X position to align with wall
+    const startX = -(gridWidth * effectiveBlockSize) / 2;
+
+    // Create array of all possible positions
+    const positions: { x: number, y: number }[] = [];
+    for (let x = 0; x < gridWidth; x++) {
+      for (let y = 1; y <= gridHeight; y++) {
+        positions.push({
+          x: startX + (x * effectiveBlockSize),
+          y: y * effectiveBlockSize
+        });
+      }
+    }
+
+    // Randomly select positions for initial 5 blocks
+    const initialBlockCount = 5;
+    for (let i = 0; i < initialBlockCount; i++) {
+      if (positions.length === 0) break;
+
+      const randomIndex = Math.floor(Math.random() * positions.length);
+      const position = positions.splice(randomIndex, 1)[0];
+
+      if (Math.random() < POWER_UP_CHANCE) {
+        const powerUp = createPowerUp(position.x, position.y);
+        sceneRef.current.add(powerUp);
+        blocksRef.current.push(powerUp);
+      } else {
+        const block = createBlock(position.x, position.y, 1);
+        sceneRef.current.add(block);
+        blocksRef.current.push(block);
       }
     }
   };
@@ -811,13 +838,43 @@ const GameCanvas: React.FC = () => {
   };
 
   const createNewRowOfBlocks = () => {
-    for (let x = -4; x <= 4; x += 2) {
+    const spacing = BLOCK_SIZE * 0.1;
+    const effectiveBlockSize = BLOCK_SIZE + spacing;
+
+    // Calculate number of blocks that fit between walls with spacing
+    const gridWidth = Math.floor((GAME_WIDTH - spacing) / effectiveBlockSize) - 1;
+    const maxBlocksPerRow = Math.floor(gridWidth * 0.9);
+
+    // Calculate starting X position to align with wall
+    const startX = -(gridWidth * effectiveBlockSize) / 2;
+
+    // Calculate number of new blocks to add
+    const baseBlockCount = 5;
+    const additionalBlocks = (turn - 1) * 2;
+    const newBlockCount = Math.min(baseBlockCount + additionalBlocks, maxBlocksPerRow);
+
+    // Create array of possible x positions
+    const positions: number[] = [];
+    for (let x = 0; x < gridWidth; x++) {
+      positions.push(startX + (x * effectiveBlockSize));
+    }
+
+    // Add new blocks at random x positions
+    for (let i = 0; i < newBlockCount; i++) {
+      if (positions.length === 0) break;
+
+      const randomIndex = Math.floor(Math.random() * positions.length);
+      const xPos = positions.splice(randomIndex, 1)[0];
+      const yPos = GAME_HEIGHT / 2 - effectiveBlockSize;
+
       if (Math.random() < POWER_UP_CHANCE) {
-        const powerUp = createPowerUp(x, GAME_HEIGHT / 2 - BLOCK_SIZE);
+        const powerUp = createPowerUp(xPos, yPos);
         sceneRef.current.add(powerUp);
         blocksRef.current.push(powerUp);
       } else {
-        const block = createBlock(x, GAME_HEIGHT / 2 - BLOCK_SIZE, turn);
+        // Use next turn's number for the block health
+        const nextTurnNumber = turn + 1;
+        const block = createBlock(xPos, yPos, nextTurnNumber);
         sceneRef.current.add(block);
         blocksRef.current.push(block);
       }

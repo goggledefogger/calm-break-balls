@@ -22,18 +22,19 @@ export interface Block extends THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardM
 }
 
 export const createBlock = (x: number, y: number, turn: number): Block => {
-  // Create more interesting block geometry with beveled edges
+  // Create block geometry (no changes needed to geometry)
   const geometry = new THREE.BoxGeometry(
     GAME_SETTINGS.BLOCK_SIZE,
     GAME_SETTINGS.BLOCK_SIZE,
     GAME_SETTINGS.BLOCK_SIZE * 0.8
   );
 
-  const health = Math.floor(Math.random() * 5) + 1 + Math.floor(turn / 3);
+  // Set health directly to turn number
+  const health = turn;
 
-  // Enhanced material with dynamic properties
+  // Enhanced material with dynamic properties based on health
   const material = new THREE.MeshPhysicalMaterial({
-    color: new THREE.Color(`hsl(${health * 30}, 85%, 60%)`),
+    color: new THREE.Color(`hsl(${Math.min(health * 30, 360)}, 85%, 60%)`),
     metalness: 0.8,
     roughness: 0.2,
     clearcoat: 1.0,
@@ -41,7 +42,7 @@ export const createBlock = (x: number, y: number, turn: number): Block => {
     transmission: 0.1,
     thickness: 0.5,
     envMapIntensity: 1.0,
-    emissive: new THREE.Color(`hsl(${health * 30}, 85%, 30%)`),
+    emissive: new THREE.Color(`hsl(${Math.min(health * 30, 360)}, 85%, 30%)`),
     emissiveIntensity: 0.3
   });
 
@@ -51,7 +52,7 @@ export const createBlock = (x: number, y: number, turn: number): Block => {
   // Add dynamic edge glow
   const edges = new THREE.EdgesGeometry(geometry);
   const edgesMaterial = new THREE.LineBasicMaterial({
-    color: new THREE.Color(`hsl(${health * 30}, 85%, 80%)`),
+    color: new THREE.Color(`hsl(${Math.min(health * 30, 360)}, 85%, 80%)`),
     transparent: true,
     opacity: 0.7,
     linewidth: 1
