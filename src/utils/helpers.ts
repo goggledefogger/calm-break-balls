@@ -1,5 +1,3 @@
-// src/utils/helpers.ts
-
 import * as THREE from "three";
 import React from "react";
 
@@ -14,10 +12,17 @@ export const screenToWorld = (
   const rect = containerRef.current.getBoundingClientRect();
   const x = ((screenX - rect.left) / rect.width) * 2 - 1;
   const y = -((screenY - rect.top) / rect.height) * 2 + 1;
-  const vector = new THREE.Vector3(x, y, 0); // z = 0 to stay in x-y plane
-  vector.unproject(camera);
-  vector.z = 0; // Ensure z-component is zero
-  return vector;
+
+  const mouse = new THREE.Vector2(x, y);
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(mouse, camera);
+
+  const planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0); // Plane at z=0
+
+  const point = new THREE.Vector3();
+  raycaster.ray.intersectPlane(planeZ, point);
+
+  return point;
 };
 
 export const createTextSprite = (message: string): THREE.Sprite => {
