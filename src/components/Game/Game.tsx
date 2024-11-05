@@ -78,7 +78,33 @@ const Game: React.FC = () => {
 
   const initGame = () => {
     const scene = sceneRef.current;
-    scene.background = new THREE.Color(0x1a202c);
+    // Keep the enhanced background and fog
+    scene.background = new THREE.Color(0x0a1020);
+    scene.fog = new THREE.FogExp2(0x0a1020, 0.035);
+
+    // Keep enhanced lighting setup
+    const ambientLight = new THREE.AmbientLight(0x404080, 0.6);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
+    dirLight.position.set(10, 10, 15);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    scene.add(dirLight);
+
+    const rimLight = new THREE.DirectionalLight(0x6699ff, 0.8);
+    rimLight.position.set(-10, 5, -10);
+    scene.add(rimLight);
+
+    // Keep dynamic point lights
+    const pointLight1 = new THREE.PointLight(0xff6600, 1, 30);
+    pointLight1.position.set(5, 5, 8);
+    scene.add(pointLight1);
+
+    const pointLight2 = new THREE.PointLight(0x00ffff, 1, 30);
+    pointLight2.position.set(-5, -5, 8);
+    scene.add(pointLight2);
 
     // Initialize the camera with adjusted position
     const aspect = window.innerWidth / window.innerHeight;
@@ -102,24 +128,16 @@ const Game: React.FC = () => {
     // Call handleResize to set initial size and camera frustum
     handleResize();
 
-    // Enhanced lighting
-    scene.add(new THREE.AmbientLight(0x404040, 0.8));
+    // Restore and enhance the aim line
+    const aimLineMaterial = new THREE.LineBasicMaterial({
+      color: 0xffff00,
+      linewidth: 1,
+    });
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    dirLight.position.set(10, 10, 5);
-    dirLight.castShadow = true;
-    scene.add(dirLight);
-
-    const pointLight = new THREE.PointLight(0xff6600, 0.8, 20);
-    pointLight.position.set(0, 0, 5);
-    scene.add(pointLight);
-
-    // Add subtle fog for depth
-    scene.fog = new THREE.Fog(0x1a202c, 15, 50);
-
-    // Aim line
-    const aimLineMaterial = new THREE.LineBasicMaterial({ color: 0xffff00 });
     const aimLineGeometry = new THREE.BufferGeometry();
+    const initialPositions = new Float32Array([0, 0, 0, 0, 0, 0]);
+    aimLineGeometry.setAttribute('position', new THREE.BufferAttribute(initialPositions, 3));
+
     const aimLine = new THREE.Line(aimLineGeometry, aimLineMaterial);
     scene.add(aimLine);
     aimLineRef.current = aimLine;
@@ -212,7 +230,7 @@ const Game: React.FC = () => {
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!isAimingRef.current) return;
+      if (!isAimingRef.current || turnInProgressRef.current) return;
 
       const currentWorldPos = screenToWorld(
         e.clientX,
@@ -225,7 +243,6 @@ const Game: React.FC = () => {
         initialWorldPosRef.current
       );
 
-      // Ensure z-component is zero
       dragVector.z = 0;
 
       const direction = dragVector
@@ -234,20 +251,24 @@ const Game: React.FC = () => {
         .normalize()
         .multiplyScalar(MAX_AIM_LENGTH);
 
-      // Ensure z-component is zero
       direction.z = 0;
 
-      const positions = new Float32Array([
-        startPositionRef.current.x,
-        startPositionRef.current.y,
-        startPositionRef.current.z,
-        startPositionRef.current.x + direction.x,
-        startPositionRef.current.y + direction.y,
-        startPositionRef.current.z + direction.z,
-      ]);
+      // Simpler line with dots using multiple segments
+      const numPoints = 20; // Reduced number of points
+      const positions = new Float32Array(numPoints * 3);
+
+      for (let i = 0; i < numPoints; i++) {
+        const t = i / (numPoints - 1);
+        // Add slight offset to y position to create dotted appearance
+        const x = startPositionRef.current.x + direction.x * t;
+        const y = startPositionRef.current.y + direction.y * t;
+        positions[i * 3] = x;
+        positions[i * 3 + 1] = y;
+        positions[i * 3 + 2] = 0;
+      }
 
       aimLineRef.current!.geometry.setAttribute(
-        "position",
+        'position',
         new THREE.BufferAttribute(positions, 3)
       );
     },
@@ -404,6 +425,7 @@ const Game: React.FC = () => {
 
   useEffect(() => {
     initGame();
+    createEnvironment();
     return () => {
       window.removeEventListener("resize", handleResize);
       cancelAnimationFrame(requestRef.current!);
@@ -730,6 +752,40 @@ const Game: React.FC = () => {
         blocksRef.current.push(block);
       }
     }
+  };
+
+  // Add this new method for visual effects
+  const createEnvironment = () => {
+    // Add subtle particle system for depth
+    const particleGeometry = new THREE.BufferGeometry();
+    const particleCount = 200;
+    const positions = new Float32Array(particleCount * 3);
+
+    for (let i = 0; i < particleCount * 3; i += 3) {
+      positions[i] = (Math.random() - 0.5) * GAME_WIDTH * 2;
+      positions[i + 1] = (Math.random() - 0.5) * GAME_HEIGHT * 2;
+      positions[i + 2] = (Math.random() - 0.5) * 20 - 15; // Behind the game
+    }
+
+    particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const particleMaterial = new THREE.PointsMaterial({
+      color: 0x6699ff,
+      size: 0.1,
+      transparent: true,
+      opacity: 0.4,
+      blending: THREE.AdditiveBlending
+    });
+
+    const particles = new THREE.Points(particleGeometry, particleMaterial);
+    sceneRef.current.add(particles);
+
+    // Animate particles
+    gsap.to(particles.rotation, {
+      y: Math.PI * 2,
+      duration: 100,
+      repeat: -1,
+      ease: "none"
+    });
   };
 
   if (isGameOver) {

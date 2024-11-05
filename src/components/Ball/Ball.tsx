@@ -15,35 +15,43 @@ export interface Ball extends THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandar
 }
 
 export const createBall = (startPosition: THREE.Vector3): Ball => {
-  const geometry = new THREE.SphereGeometry(GAME_SETTINGS.BALL_RADIUS * 0.8, 32, 32);
+  const geometry = new THREE.SphereGeometry(GAME_SETTINGS.BALL_RADIUS, 32, 32);
   const material = new THREE.MeshStandardMaterial({
     color: 0xff8800,
     emissive: 0xff4400,
-    emissiveIntensity: 0.5,
-    roughness: 0.2,
-    metalness: 0.8
+    emissiveIntensity: 0.4,
+    metalness: 0.3,
+    roughness: 0.4,
   });
 
   const ball = new THREE.Mesh(geometry, material) as unknown as Ball;
 
-  const glowGeometry = new THREE.SphereGeometry(GAME_SETTINGS.BALL_RADIUS * 1.2, 32, 32);
+  const glowGeometry = new THREE.RingGeometry(
+    GAME_SETTINGS.BALL_RADIUS * 1.2,
+    GAME_SETTINGS.BALL_RADIUS * 1.4,
+    32
+  );
   const glowMaterial = new THREE.MeshBasicMaterial({
-    color: 0xff6600,
+    color: 0xffaa00,
     transparent: true,
-    opacity: 0.3,
-    side: THREE.BackSide
+    opacity: 0.4,
+    side: THREE.DoubleSide
   });
+
   const glowMesh = new THREE.Mesh(glowGeometry, glowMaterial);
   ball.add(glowMesh);
 
   const trailGeometry = new THREE.BufferGeometry();
   const trailMaterial = new THREE.PointsMaterial({
     color: 0xff3300,
-    size: 0.1,
+    size: 0.15,
     transparent: true,
-    opacity: 0.6
+    opacity: 0.6,
+    blending: THREE.AdditiveBlending,
+    map: new THREE.TextureLoader().load('/particle.png')
   });
-  const trailPoints = new Float32Array(30 * 3); // 30 points, 3 values each
+
+  const trailPoints = new Float32Array(45 * 3);
   trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailPoints, 3));
   const trail = new THREE.Points(trailGeometry, trailMaterial);
   ball.add(trail);

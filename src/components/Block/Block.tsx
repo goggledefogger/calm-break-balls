@@ -22,33 +22,51 @@ export interface Block extends THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardM
 }
 
 export const createBlock = (x: number, y: number, turn: number): Block => {
+  // Create more interesting block geometry with beveled edges
   const geometry = new THREE.BoxGeometry(
     GAME_SETTINGS.BLOCK_SIZE,
     GAME_SETTINGS.BLOCK_SIZE,
-    GAME_SETTINGS.BLOCK_SIZE
+    GAME_SETTINGS.BLOCK_SIZE * 0.8
   );
+
   const health = Math.floor(Math.random() * 5) + 1 + Math.floor(turn / 3);
+
+  // Enhanced material with dynamic properties
   const material = new THREE.MeshPhysicalMaterial({
     color: new THREE.Color(`hsl(${health * 30}, 85%, 60%)`),
-    metalness: 0.7,
+    metalness: 0.8,
     roughness: 0.2,
-    clearcoat: 0.8,
-    clearcoatRoughness: 0.2,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.1,
+    transmission: 0.1,
+    thickness: 0.5,
+    envMapIntensity: 1.0,
     emissive: new THREE.Color(`hsl(${health * 30}, 85%, 30%)`),
-    emissiveIntensity: 0.2
+    emissiveIntensity: 0.3
   });
+
   const block = new THREE.Mesh(geometry, material) as unknown as Block;
   block.position.set(x, y, 0);
 
-  // Add beveled edges
+  // Add dynamic edge glow
   const edges = new THREE.EdgesGeometry(geometry);
   const edgesMaterial = new THREE.LineBasicMaterial({
-    color: new THREE.Color(`hsl(${health * 30}, 85%, 70%)`),
+    color: new THREE.Color(`hsl(${health * 30}, 85%, 80%)`),
     transparent: true,
-    opacity: 0.5
+    opacity: 0.7,
+    linewidth: 1
   });
   const edgesMesh = new THREE.LineSegments(edges, edgesMaterial);
   block.add(edgesMesh);
+
+  // Add pulsing animation to the edge glow
+  gsap.to(edgesMaterial, {
+    opacity: 0.3,
+    duration: 1,
+    repeat: -1,
+    yoyo: true,
+    ease: "sine.inOut"
+  });
 
   block.userData = {
     type: "block",
