@@ -281,6 +281,8 @@ const GameCanvas: React.FC = () => {
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (turnInProgressRef.current) return;
       isAimingRef.current = true;
+
+      // Record the initial click position in world coordinates
       initialWorldPosRef.current = screenToWorld(
         e.clientX,
         e.clientY,
@@ -302,44 +304,40 @@ const GameCanvas: React.FC = () => {
         cameraRef.current!
       );
 
-      // Calculate the drag vector from the ball's starting position to the current mouse position
+      // Calculate drag vector from initial click to current position
       const dragVector = new THREE.Vector3().subVectors(
-        currentWorldPos,
-        startPositionRef.current
+        initialWorldPosRef.current,
+        currentWorldPos
       );
+      dragVector.z = 0; // Ensure we stay in 2D plane
 
-      dragVector.z = 0;
+      // Calculate aim direction and length
+      const aimDirection = dragVector.clone().normalize();
+      const aimLength = Math.min(dragVector.length(), MAX_AIM_LENGTH);
 
-      // Calculate direction from drag vector
-      let direction = dragVector.clone();
+      // Calculate the end point of the aim line
+      const aimEndPoint = new THREE.Vector3()
+        .copy(startPositionRef.current)
+        .add(aimDirection.multiplyScalar(aimLength));
 
-      if (direction.length() === 0) {
-        direction.set(0, 1, 0); // Default to upwards if direction is zero
-      }
+      // Update the aim line geometry
+      const positions = new Float32Array([
+        startPositionRef.current.x,
+        startPositionRef.current.y,
+        0,
+        aimEndPoint.x,
+        aimEndPoint.y,
+        0
+      ]);
 
-      direction.normalize().multiplyScalar(MAX_AIM_LENGTH);
-
-      // Update the aim line with the new direction using only two points
-      const positions = new Float32Array(6);
-
-      // Start point (ball's starting position)
-      positions[0] = startPositionRef.current.x;
-      positions[1] = startPositionRef.current.y;
-      positions[2] = 0;
-
-      // End point (start position + direction)
-      positions[3] = startPositionRef.current.x + direction.x;
-      positions[4] = startPositionRef.current.y + direction.y;
-      positions[5] = 0;
-
-      // Update the geometry with the new positions
+      // Update the aim line with new positions
       aimLineRef.current!.geometry.setAttribute(
-        "position",
+        'position',
         new THREE.BufferAttribute(positions, 3)
       );
 
-      // Store the aim direction for use in launching
-      lastAimDirectionRef.current.copy(direction.clone().normalize());
+      // Store normalized aim direction for launch
+      lastAimDirectionRef.current.copy(aimDirection);
     },
     [MAX_AIM_LENGTH]
   );
@@ -353,20 +351,7 @@ const GameCanvas: React.FC = () => {
       setTurnInProgress(true);
       setIsTurbo(false);
 
-      // Clear aim line by resetting positions to start and end at start position
-      const emptyPositions = new Float32Array([
-        startPositionRef.current.x,
-        startPositionRef.current.y,
-        0,
-        startPositionRef.current.x,
-        startPositionRef.current.y,
-        0,
-      ]);
-      aimLineRef.current!.geometry.setAttribute(
-        "position",
-        new THREE.BufferAttribute(emptyPositions, 3)
-      );
-
+      // Calculate final drag vector
       const currentWorldPos = screenToWorld(
         e.clientX,
         e.clientY,
@@ -374,47 +359,47 @@ const GameCanvas: React.FC = () => {
         cameraRef.current!
       );
 
-      // Calculate drag vector from start position to current position
       const dragVector = new THREE.Vector3().subVectors(
-        currentWorldPos,
-        startPositionRef.current
+        initialWorldPosRef.current,
+        currentWorldPos
       );
-
       dragVector.z = 0;
 
-      // Calculate direction vector
-      let direction = dragVector.clone();
+      // Normalize the drag vector and store as launch direction
+      const launchDirection = dragVector.normalize();
+      lastAimDirectionRef.current.copy(launchDirection);
 
-      if (direction.length() === 0) {
-        direction.set(0, 1, 0); // Default to upwards if direction is zero
-      }
+      // Clear aim line
+      const emptyPositions = new Float32Array([
+        startPositionRef.current.x,
+        startPositionRef.current.y,
+        0,
+        startPositionRef.current.x,
+        startPositionRef.current.y,
+        0
+      ]);
 
-      direction.normalize();
+      aimLineRef.current!.geometry.setAttribute(
+        'position',
+        new THREE.BufferAttribute(emptyPositions, 3)
+      );
 
-      // Store the aim direction
-      lastAimDirectionRef.current.copy(direction.clone().normalize());
-
-      // Reset spirograph angle for a new pattern
+      // Reset spirograph for new pattern
       spirographAngleRef.current = 0;
 
-      // Set initial velocity based on the direction
-      const initialVelocity = direction.clone();
-
+      // Launch balls
       totalBallsThisTurnRef.current = ballsRef.current.length;
       returnedBallsCount.current = 0;
-
-      // Set up first ball to follow
       ballToFollowRef.current = ballsRef.current[0];
 
       let ballIndex = 0;
-
       const launchNext = () => {
         if (ballIndex >= totalBallsThisTurnRef.current) return;
 
         const ball = ballsRef.current[ballIndex];
         ball.position.copy(startPositionRef.current);
         ball.position.z = 0;
-        ball.userData.velocity = initialVelocity.clone();
+        ball.userData.velocity = launchDirection.clone();
         ball.userData.active = true;
 
         ballIndex++;
