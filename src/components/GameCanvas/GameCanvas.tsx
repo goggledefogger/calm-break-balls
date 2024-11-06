@@ -848,7 +848,8 @@ const GameCanvas: React.FC = () => {
   const moveBlocksDown = () => {
     blocksRef.current.forEach((block) => {
       block.position.y -= BLOCK_SIZE;
-      if (block.position.y <= -GAME_HEIGHT / 2 + BLOCK_SIZE / 2) {
+      const dangerZone = startPositionRef.current.y + BLOCK_SIZE * 1.5; // Give some buffer above the ball
+      if (block.position.y <= dangerZone) {
         setIsGameOver(true);
       }
     });
@@ -901,10 +902,29 @@ const GameCanvas: React.FC = () => {
     // Calculate starting X position to align with wall
     const startX = -(gridWidth * effectiveBlockSize) / 2;
 
-    // Calculate number of new blocks to add
-    const baseBlockCount = 5;
-    const additionalBlocks = nextTurn * 2;
-    const newBlockCount = Math.min(baseBlockCount + additionalBlocks, maxBlocksPerRow);
+    // More dynamic block count calculation with balanced numbers
+    const baseBlockCount = 1.5; // Between 1 and 2
+
+    // Calculate additional blocks with randomness (balanced scaling factors)
+    let additionalBlocks;
+    const random = Math.random();
+    if (random < 0.4) {
+      // 40% chance of small increase
+      additionalBlocks = Math.floor(nextTurn * 0.2);
+    } else if (random < 0.8) {
+      // 40% chance of medium increase
+      additionalBlocks = Math.floor(nextTurn * 0.4);
+    } else {
+      // 20% chance of large increase
+      additionalBlocks = Math.floor(nextTurn * 0.6);
+    }
+
+    // Add some randomness to the final count
+    const variance = Math.floor(Math.random() * 2) - 0.75; // Between -0.75 and 0.75
+    const newBlockCount = Math.min(
+      Math.max(Math.floor(baseBlockCount + additionalBlocks + variance), 1), // Ensure at least 1 block
+      maxBlocksPerRow
+    );
 
     // Create array of possible x positions
     const positions: number[] = [];
