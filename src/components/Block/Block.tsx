@@ -32,29 +32,24 @@ export const createBlock = (x: number, y: number, turn: number): Block => {
   // Set health directly to turn number
   const health = turn;
 
-  // Enhanced material with dynamic properties based on health
-  const material = new THREE.MeshPhysicalMaterial({
-    color: new THREE.Color(`hsl(${Math.min(health * 30, 360)}, 85%, 60%)`),
-    metalness: 0.8,
-    roughness: 0.2,
-    clearcoat: 1.0,
-    clearcoatRoughness: 0.1,
-    transmission: 0.1,
-    thickness: 0.5,
-    envMapIntensity: 1.0,
-    emissive: new THREE.Color(`hsl(${Math.min(health * 30, 360)}, 85%, 30%)`),
-    emissiveIntensity: 0.3
+  // Enhanced material with balanced properties based on health
+  const material = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(`hsl(${health * 30}, 75%, 55%)`),
+    metalness: 0.35,
+    roughness: 0.35,
+    emissive: new THREE.Color(`hsl(${health * 30}, 65%, 25%)`),
+    emissiveIntensity: 0.25
   });
 
   const block = new THREE.Mesh(geometry, material) as unknown as Block;
   block.position.set(x, y, 0);
 
-  // Add dynamic edge glow
+  // Add dynamic edge glow with balanced opacity
   const edges = new THREE.EdgesGeometry(geometry);
   const edgesMaterial = new THREE.LineBasicMaterial({
-    color: new THREE.Color(`hsl(${Math.min(health * 30, 360)}, 85%, 80%)`),
+    color: new THREE.Color(`hsl(${health * 30}, 85%, 65%)`),
     transparent: true,
-    opacity: 0.7,
+    opacity: 0.35,
     linewidth: 1
   });
   const edgesMesh = new THREE.LineSegments(edges, edgesMaterial);

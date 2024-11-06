@@ -16,11 +16,11 @@ export interface Ball extends THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandar
 export const createBall = (startPosition: THREE.Vector3): Ball => {
   const geometry = new THREE.SphereGeometry(GAME_SETTINGS.BALL_RADIUS, 32, 32);
   const material = new THREE.MeshStandardMaterial({
-    color: 0xff8800,
-    emissive: 0xff4400,
+    color: 0xff9933,
+    emissive: 0xff5500,
     emissiveIntensity: 0.4,
-    metalness: 0.3,
-    roughness: 0.4,
+    metalness: 0.35,
+    roughness: 0.35,
   });
 
   const ball = new THREE.Mesh(geometry, material) as unknown as Ball;
@@ -31,7 +31,7 @@ export const createBall = (startPosition: THREE.Vector3): Ball => {
     32
   );
   const glowMaterial = new THREE.MeshBasicMaterial({
-    color: 0xffaa00,
+    color: 0xffbb33,
     transparent: true,
     opacity: 0.4,
     side: THREE.DoubleSide

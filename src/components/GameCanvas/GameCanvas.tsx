@@ -91,31 +91,31 @@ const GameCanvas: React.FC = () => {
 
   const initGame = () => {
     const scene = sceneRef.current;
-    // Keep the enhanced background and fog
-    scene.background = new THREE.Color(0x0a1020);
-    scene.fog = new THREE.FogExp2(0x0a1020, 0.035);
+    // Balanced background and fog
+    scene.background = new THREE.Color(0x141830); // Medium-dark blue
+    scene.fog = new THREE.FogExp2(0x141830, 0.03); // Moderate fog density
 
-    // Keep enhanced lighting setup
-    const ambientLight = new THREE.AmbientLight(0x404080, 0.6);
+    // Balanced lighting setup
+    const ambientLight = new THREE.AmbientLight(0x5070ff, 0.7); // Moderate ambient light
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.6); // Balanced intensity
     dirLight.position.set(10, 10, 15);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
     dirLight.shadow.mapSize.height = 2048;
     scene.add(dirLight);
 
-    const rimLight = new THREE.DirectionalLight(0x6699ff, 0.8);
+    const rimLight = new THREE.DirectionalLight(0x7090ff, 0.9); // Balanced rim light
     rimLight.position.set(-10, 5, -10);
     scene.add(rimLight);
 
-    // Keep dynamic point lights
-    const pointLight1 = new THREE.PointLight(0xff6600, 1, 30);
+    // Balanced point lights
+    const pointLight1 = new THREE.PointLight(0xff7733, 1.1, 32); // Moderate range and intensity
     pointLight1.position.set(5, 5, 8);
     scene.add(pointLight1);
 
-    const pointLight2 = new THREE.PointLight(0x00ffff, 1, 30);
+    const pointLight2 = new THREE.PointLight(0x3399ff, 1.1, 32); // Moderate range and intensity
     pointLight2.position.set(-5, -5, 8);
     scene.add(pointLight2);
 
