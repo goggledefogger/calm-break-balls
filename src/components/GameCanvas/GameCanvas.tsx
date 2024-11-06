@@ -14,6 +14,7 @@ import GameOver from "../GameOver/GameOver";
 import EndTurnButton from "../EndTurnButton/EndTurnButton";
 import styles from "./GameCanvas.module.css";
 import gsap from "gsap";
+import { fireTexture, sharedFireMaterial } from "../Ball/BallResources";
 
 const GameCanvas: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -532,6 +533,8 @@ const GameCanvas: React.FC = () => {
     return () => {
       window.removeEventListener("resize", handleResize);
       cancelAnimationFrame(requestRef.current!);
+      sharedFireMaterial.dispose();
+      fireTexture.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -643,6 +646,54 @@ const GameCanvas: React.FC = () => {
 
       ball.userData.trailIndex = (trailIndex + 1) % (trailPoints.length / 3);
       ball.userData.trail.geometry.attributes.position.needsUpdate = true;
+
+      // Update fire particles if turbo is active
+      if (isTurboRef.current) {
+        const positions = ball.userData.fireParticlePositions;
+        const velocities = ball.userData.fireParticleVelocities;
+        const colors = ball.userData.fireParticles.geometry.attributes.color.array;
+        const particleCount = positions.length / 3;
+
+        // Get ball's velocity direction for aligned trail
+        const ballVelocity = ball.userData.velocity.clone().normalize();
+
+        for (let i = 0; i < particleCount * 3; i += 3) {
+          // Update particle positions
+          positions[i] += velocities[i];
+          positions[i + 1] += velocities[i + 1];
+          positions[i + 2] += velocities[i + 2];
+
+          // Calculate particle life based on distance from ball
+          const distance = Math.sqrt(
+            positions[i] * positions[i] +
+            positions[i + 1] * positions[i + 1] +
+            positions[i + 2] * positions[i + 2]
+          );
+
+          if (distance > 2) {
+            // Reset position with slight offset behind ball
+            positions[i] = (Math.random() - 0.5) * 0.2;
+            positions[i + 1] = (Math.random() - 0.5) * 0.2;
+            positions[i + 2] = (Math.random() - 0.5) * 0.2;
+
+            // Reset velocities aligned opposite to ball's movement
+            velocities[i] = (Math.random() - 0.5) * 0.3 - ballVelocity.x * 0.8;
+            velocities[i + 1] = (Math.random() - 0.5) * 0.3 - ballVelocity.y * 0.8;
+            velocities[i + 2] = (Math.random() - 0.5) * 0.3;
+
+            // Reset to core color
+            colors[i] = 1.0;     // R
+            colors[i + 1] = 1.0; // G
+            colors[i + 2] = 0.7; // B
+          }
+        }
+
+        // Update the geometry
+        ball.userData.fireParticles.geometry.attributes.position.needsUpdate = true;
+        ball.userData.fireParticles.geometry.attributes.color.needsUpdate = true;
+      }
+
+      ball.userData.fireParticles.visible = isTurboRef.current;
     });
 
     // Update camera to follow the ball
