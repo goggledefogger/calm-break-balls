@@ -2,12 +2,20 @@
   position: relative;
   width: 100%;
   height: 100vh;
+  /* Prevent overscroll behavior on iOS */
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+  /* Prevent text selection during drag */
+  user-select: none;
+  -webkit-user-select: none;
   /* Ensure it doesn't exceed viewport height */
   background-color: #1a202c;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Prevent pull-to-refresh on mobile */
+  touch-action: none;
 }
 
 .canvasContainer {
@@ -19,6 +27,24 @@
   /* Prevent exceeding viewport height */
   aspect-ratio: 10 / 15;
   /* Maintain aspect ratio */
+  /* Ensure proper sizing on iOS */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+/* Adjust for mobile screens */
+@media (max-width: 768px) {
+  .canvasContainer {
+    width: 95%; /* Slightly smaller width on mobile */
+    margin: 0 auto;
+  }
+}
+
+/* Adjust for very tall mobile screens */
+@media (max-height: 900px) and (orientation: portrait) {
+  .canvasContainer {
+    height: 95vh;
+  }
 }
 
 .canvasContainer canvas {

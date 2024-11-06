@@ -58,6 +58,8 @@ const GameCanvas: React.FC = () => {
   const spirographAngleRef = useRef<number>(0);
   const lastAimDirectionRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 1, 0));
 
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
   const {
     BALL_RADIUS,
     BLOCK_SIZE,
@@ -336,70 +338,102 @@ const GameCanvas: React.FC = () => {
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (turnInProgressRef.current) return;
-      isAimingRef.current = true;
 
-      // Record the initial click position in world coordinates
-      initialWorldPosRef.current = screenToWorld(
-        e.clientX,
-        e.clientY,
-        containerRef,
-        cameraRef.current!
-      );
+      // Store initial touch position
+      touchStartRef.current = { x: e.clientX, y: e.clientY };
+
+      // Only start aiming if it's not a quick tap
+      setTimeout(() => {
+        if (touchStartRef.current) {
+          isAimingRef.current = true;
+          initialWorldPosRef.current = screenToWorld(
+            e.clientX,
+            e.clientY,
+            containerRef,
+            cameraRef.current!
+          );
+        }
+      }, 100);
     },
     []
   );
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!isAimingRef.current || turnInProgressRef.current) return;
+      if (!touchStartRef.current || !isAimingRef.current || turnInProgressRef.current) return;
 
-      const currentWorldPos = screenToWorld(
-        e.clientX,
-        e.clientY,
-        containerRef,
-        cameraRef.current!
+      // Calculate touch distance
+      const touchDistance = Math.sqrt(
+        Math.pow(e.clientX - touchStartRef.current.x, 2) +
+        Math.pow(e.clientY - touchStartRef.current.y, 2)
       );
 
-      // Calculate drag vector from initial click to current position
-      const dragVector = new THREE.Vector3().subVectors(
-        initialWorldPosRef.current,
-        currentWorldPos
-      );
-      dragVector.z = 0; // Ensure we stay in 2D plane
+      // Only process move if distance exceeds minimum
+      if (touchDistance > GAME_SETTINGS.MIN_TOUCH_DISTANCE) {
+        const currentWorldPos = screenToWorld(
+          e.clientX,
+          e.clientY,
+          containerRef,
+          cameraRef.current!
+        );
 
-      // Calculate aim direction and length
-      const aimDirection = dragVector.clone().normalize();
-      const aimLength = Math.min(dragVector.length(), MAX_AIM_LENGTH);
+        // Calculate drag vector from initial click to current position
+        const dragVector = new THREE.Vector3().subVectors(
+          initialWorldPosRef.current,
+          currentWorldPos
+        );
+        dragVector.z = 0; // Ensure we stay in 2D plane
 
-      // Calculate the end point of the aim line
-      const aimEndPoint = new THREE.Vector3()
-        .copy(startPositionRef.current)
-        .add(aimDirection.multiplyScalar(aimLength));
+        // Calculate aim direction and length
+        const aimDirection = dragVector.clone().normalize();
+        const aimLength = Math.min(dragVector.length(), MAX_AIM_LENGTH);
 
-      // Update the aim line geometry
-      const positions = new Float32Array([
-        startPositionRef.current.x,
-        startPositionRef.current.y,
-        0,
-        aimEndPoint.x,
-        aimEndPoint.y,
-        0
-      ]);
+        // Calculate the end point of the aim line
+        const aimEndPoint = new THREE.Vector3()
+          .copy(startPositionRef.current)
+          .add(aimDirection.multiplyScalar(aimLength));
 
-      // Update the aim line with new positions
-      aimLineRef.current!.geometry.setAttribute(
-        'position',
-        new THREE.BufferAttribute(positions, 3)
-      );
+        // Update the aim line geometry
+        const positions = new Float32Array([
+          startPositionRef.current.x,
+          startPositionRef.current.y,
+          0,
+          aimEndPoint.x,
+          aimEndPoint.y,
+          0
+        ]);
 
-      // Store normalized aim direction for launch
-      lastAimDirectionRef.current.copy(aimDirection);
+        // Update the aim line with new positions
+        aimLineRef.current!.geometry.setAttribute(
+          'position',
+          new THREE.BufferAttribute(positions, 3)
+        );
+
+        // Store normalized aim direction for launch
+        lastAimDirectionRef.current.copy(aimDirection);
+      }
     },
-    [MAX_AIM_LENGTH]
+    []
   );
 
   const handlePointerUp = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!touchStartRef.current) return;
+
+      const touchDistance = Math.sqrt(
+        Math.pow(e.clientX - touchStartRef.current.x, 2) +
+        Math.pow(e.clientY - touchStartRef.current.y, 2)
+      );
+
+      // Reset touch start position
+      touchStartRef.current = null;
+
+      // If it was just a tap or very small movement, don't launch
+      if (touchDistance < GAME_SETTINGS.MIN_TOUCH_DISTANCE) {
+        isAimingRef.current = false;
+        return;
+      }
+
       if (!isAimingRef.current || turnInProgressRef.current) return;
 
       isAimingRef.current = false;
@@ -1028,6 +1062,24 @@ const GameCanvas: React.FC = () => {
     spirographRef.current.geometry.attributes.position.needsUpdate = true;
     spirographRef.current.geometry.attributes.color.needsUpdate = true;
   };
+
+  // Add touch event handlers for iOS Safari
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const preventScroll = (e: TouchEvent) => {
+      e.preventDefault();
+    };
+
+    container.addEventListener('touchstart', preventScroll, { passive: false });
+    container.addEventListener('touchmove', preventScroll, { passive: false });
+
+    return () => {
+      container.removeEventListener('touchstart', preventScroll);
+      container.removeEventListener('touchmove', preventScroll);
+    };
+  }, []);
 
   if (isGameOver) {
     return <GameOver score={score} />;
