@@ -2,7 +2,6 @@
 
 import * as THREE from "three";
 import { GAME_SETTINGS } from "../../utils/constants";
-import { TextureLoader } from 'three';
 
 export interface Ball extends THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial> {
   userData: {
