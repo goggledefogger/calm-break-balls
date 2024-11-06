@@ -67,6 +67,7 @@ const GameCanvas: React.FC = () => {
     TURBO_MULTIPLIER,
     MAX_AIM_LENGTH,
     POWER_UP_CHANCE,
+    CAMERA_FOLLOW_DELAY,
   } = GAME_SETTINGS;
 
   const {
@@ -601,7 +602,7 @@ const GameCanvas: React.FC = () => {
     const elapsedTime = (currentTime - cameraStartTimeRef.current) / 1000; // in seconds
 
     if (turnInProgressRef.current) {
-      if (elapsedTime < 20) {
+      if (elapsedTime < CAMERA_FOLLOW_DELAY) {
         // Keep the camera stationary for the first 20 seconds
         return;
       }

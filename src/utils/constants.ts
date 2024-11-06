@@ -9,4 +9,5 @@ export const GAME_SETTINGS = {
   TURBO_MULTIPLIER: 3, // Added constant for turbo speed multiplier
   MAX_AIM_LENGTH: 5,
   POWER_UP_CHANCE: 0.2,
+  CAMERA_FOLLOW_DELAY: 10, // Added new constant for camera delay in seconds
 };
