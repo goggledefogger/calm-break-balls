@@ -11,6 +11,7 @@ import { createPowerUp } from "../PowerUp/PowerUp";
 import ScoreBoard from "../ScoreBoard/ScoreBoard";
 import TurboButton from "../TurboButton/TurboButton";
 import GameOver from "../GameOver/GameOver";
+import EndTurnButton from "../EndTurnButton/EndTurnButton";
 import styles from "./GameCanvas.module.css";
 import gsap from "gsap";
 
@@ -34,6 +35,7 @@ const GameCanvas: React.FC = () => {
 
   const initialCameraPositionRef = useRef<THREE.Vector3>(new THREE.Vector3());
   const cameraTargetPositionRef = useRef<THREE.Vector3>(new THREE.Vector3());
+  const cameraStartTimeRef = useRef<number>(0);
 
   const clockRef = useRef(new THREE.Clock());
 
@@ -231,6 +233,32 @@ const GameCanvas: React.FC = () => {
     isTurboRef.current = isTurbo;
   }, [isTurbo]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isAimingRef.current) {
+        isAimingRef.current = false;
+
+        // Clear aim line
+        const emptyPositions = new Float32Array([
+          startPositionRef.current.x,
+          startPositionRef.current.y,
+          0,
+          startPositionRef.current.x,
+          startPositionRef.current.y,
+          0,
+        ]);
+
+        aimLineRef.current!.geometry.setAttribute(
+          "position",
+          new THREE.BufferAttribute(emptyPositions, 3)
+        );
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   const handleResize = () => {
     if (!rendererRef.current || !containerRef.current || !cameraRef.current)
       return;
@@ -375,6 +403,7 @@ const GameCanvas: React.FC = () => {
 
       isAimingRef.current = false;
       turnInProgressRef.current = true;
+      cameraStartTimeRef.current = performance.now();
       setTurnInProgress(true);
       setIsTurbo(false);
 
@@ -606,7 +635,26 @@ const GameCanvas: React.FC = () => {
 
     // Update camera to follow the ball
     const camera = cameraRef.current!;
+    const currentTime = performance.now();
+    const elapsedTime = (currentTime - cameraStartTimeRef.current) / 1000; // in seconds
+
     if (turnInProgressRef.current) {
+      if (elapsedTime < 20) {
+        // Keep the camera stationary for the first 20 seconds
+        return;
+      }
+
+      // Calculate the camera speed multiplier
+      const baseSpeed = 0.1; // 10% of current speed
+      const speedMultiplier = baseSpeed + turn * 0.05; // Increase speed each turn
+
+      // Ensure the speedMultiplier doesn't exceed 1
+      const finalSpeedMultiplier = Math.min(speedMultiplier, 1);
+
+      // Apply the finalSpeedMultiplier to camera movements
+      // Modify the lerp factors by multiplying with finalSpeedMultiplier
+      const lerpFactor = 0.015 * finalSpeedMultiplier;
+
       if (ballToFollowRef.current && ballToFollowRef.current.userData.active) {
         const ballPosition = ballToFollowRef.current.position;
         const ballVelocity = (ballToFollowRef.current.userData as any).velocity;
@@ -736,6 +784,9 @@ const GameCanvas: React.FC = () => {
         camera.lookAt(
           camera.position.clone().add(currentLookTarget.multiplyScalar(10))
         );
+
+        cameraTargetPositionRef.current.lerp(desiredCameraPosition, lerpFactor);
+        camera.position.lerp(cameraTargetPositionRef.current, lerpFactor);
       } else {
         // The ball we're following is no longer active
         // Find another active ball to follow
@@ -1024,6 +1075,21 @@ const GameCanvas: React.FC = () => {
       <div ref={containerRef} className={styles.canvasContainer} />
       <ScoreBoard />
       <TurboButton />
+      <EndTurnButton
+        onClick={() => {
+          if (turnInProgressRef.current) {
+            // Deactivate all balls to end the turn
+            ballsRef.current.forEach(ball => {
+              ball.userData.active = false;
+              ball.position.copy(startPositionRef.current);
+              ball.position.z = 0;
+            });
+            returnedBallsCount.current = totalBallsThisTurnRef.current;
+            endTurn();
+          }
+        }}
+        disabled={!turnInProgressRef.current}
+      />
     </div>
   );
 };
