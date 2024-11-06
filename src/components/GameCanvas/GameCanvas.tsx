@@ -413,7 +413,7 @@ const GameCanvas: React.FC = () => {
         lastAimDirectionRef.current.copy(aimDirection);
       }
     },
-    []
+    [MAX_AIM_LENGTH]
   );
 
   const handlePointerUp = useCallback(
@@ -1117,7 +1117,6 @@ const GameCanvas: React.FC = () => {
         <TurboButton />
         <EndTurnButton
           onClick={() => {
-            console.log('EndTurnButton clicked'); // Add debug log
             if (turnInProgressRef.current) {
               ballsRef.current.forEach(ball => {
                 ball.userData.active = false;

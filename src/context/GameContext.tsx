@@ -1,6 +1,6 @@
 // src/context/GameContext.tsx
 
-import React, { createContext, useState, ReactNode, useEffect } from "react";
+import React, { createContext, useState, ReactNode } from "react";
 
 interface GameContextProps {
   score: number;
