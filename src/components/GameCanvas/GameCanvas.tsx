@@ -60,6 +60,8 @@ const GameCanvas: React.FC = () => {
 
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
+  const nextStartXRef = useRef<number | null>(null);
+
   const {
     BALL_RADIUS,
     BLOCK_SIZE,
@@ -498,6 +500,9 @@ const GameCanvas: React.FC = () => {
       };
 
       launchNext();
+
+      // Reset the nextStartXRef at the start of a new turn
+      nextStartXRef.current = null;
     },
     [setTurnInProgress, setIsTurbo]
   );
@@ -535,7 +540,7 @@ const GameCanvas: React.FC = () => {
     // Update each ball
     ballsRef.current.forEach((ball) => {
       if (!ball.userData.active) {
-        // Ensure inactive balls are at the starting position
+        // Only reset inactive balls to the current start position
         ball.position.copy(startPositionRef.current);
         ball.position.z = 0; // Ensure z is zero
         return;
@@ -570,10 +575,20 @@ const GameCanvas: React.FC = () => {
 
       // Check if ball has returned to bottom
       if (ball.position.y <= -GAME_HEIGHT / 2 + BALL_RADIUS) {
+        // If this is the first ball to return this turn, store its x position
+        if (returnedBallsCount.current === 0) {
+          nextStartXRef.current = ball.position.x;
+          // Also update the start position immediately to avoid the flash
+          startPositionRef.current.setX(ball.position.x);
+        }
+
+        // Deactivate the ball and increment counter before moving it
         ball.userData.active = false;
-        ball.position.copy(startPositionRef.current);
-        ball.position.z = 0; // Ensure z is zero
         returnedBallsCount.current++;
+
+        // Now reset the ball position
+        ball.position.copy(startPositionRef.current);
+        ball.position.z = 0;
 
         // If all balls have returned, end the turn
         if (returnedBallsCount.current >= totalBallsThisTurnRef.current) {
@@ -830,6 +845,17 @@ const GameCanvas: React.FC = () => {
     setTurnInProgress(false);
     setIsTurbo(false);
 
+    // Update the start position with the new x coordinate if one was stored
+    if (nextStartXRef.current !== null) {
+      // Clamp the x position to prevent balls from starting outside the playable area
+      const minX = -GAME_WIDTH / 2 + BALL_RADIUS;
+      const maxX = GAME_WIDTH / 2 - BALL_RADIUS;
+      const clampedX = Math.max(minX, Math.min(maxX, nextStartXRef.current));
+
+      startPositionRef.current.setX(clampedX);
+      nextStartXRef.current = null; // Reset for next turn
+    }
+
     // Reset camera position
     resetCamera();
 
@@ -839,7 +865,7 @@ const GameCanvas: React.FC = () => {
 
       // Then move blocks down and create new row with the next turn number
       moveBlocksDown();
-      createNewRowOfBlocks(nextTurn); // Pass in the next turn number explicitly
+      createNewRowOfBlocks(nextTurn);
 
       return nextTurn;
     });
