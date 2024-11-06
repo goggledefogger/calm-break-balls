@@ -1,24 +1,39 @@
 /* src/components/EndTurnButton/EndTurnButton.module.css */
 
 .endTurnButton {
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
+  position: fixed;
+  bottom: max(10px, env(safe-area-inset-bottom, 10px));
+  left: max(10px, env(safe-area-inset-left, 10px));
   padding: 10px;
-  background-color: rgba(70, 130, 180, 0.7);
+  background-color: #4682b4;
   color: white;
   border: none;
   border-radius: 5px;
   cursor: pointer;
   font-weight: bold;
-  transition: all 0.3s ease;
+  z-index: 9999;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .endTurnButton:hover:not(.disabled) {
-  background-color: rgba(70, 130, 180, 0.9);
+  background-color: rgba(70, 130, 180, 1);
+  transform: translateY(-1px);
 }
 
 .disabled {
-  background-color: rgba(128, 128, 128, 0.7);
+  background-color: #808080;
   cursor: not-allowed;
+}
+
+/* Adjust for landscape orientation */
+@media (max-width: 768px) and (orientation: landscape) {
+  .endTurnButton {
+    bottom: 10px;
+    left: 10px;
+  }
 }

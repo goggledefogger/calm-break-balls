@@ -1092,23 +1092,25 @@ const GameCanvas: React.FC = () => {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}>
       <div ref={containerRef} className={styles.canvasContainer} />
-      <ScoreBoard />
-      <TurboButton />
-      <EndTurnButton
-        onClick={() => {
-          if (turnInProgressRef.current) {
-            // Deactivate all balls to end the turn
-            ballsRef.current.forEach(ball => {
-              ball.userData.active = false;
-              ball.position.copy(startPositionRef.current);
-              ball.position.z = 0;
-            });
-            returnedBallsCount.current = totalBallsThisTurnRef.current;
-            endTurn();
-          }
-        }}
-        disabled={!turnInProgressRef.current}
-      />
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 9999 }}>
+        <ScoreBoard />
+        <TurboButton />
+        <EndTurnButton
+          onClick={() => {
+            console.log('EndTurnButton clicked'); // Add debug log
+            if (turnInProgressRef.current) {
+              ballsRef.current.forEach(ball => {
+                ball.userData.active = false;
+                ball.position.copy(startPositionRef.current);
+                ball.position.z = 0;
+              });
+              returnedBallsCount.current = totalBallsThisTurnRef.current;
+              endTurn();
+            }
+          }}
+          disabled={!turnInProgressRef.current}
+        />
+      </div>
     </div>
   );
 };

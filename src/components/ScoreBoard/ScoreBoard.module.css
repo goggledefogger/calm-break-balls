@@ -1,24 +1,36 @@
 /* src/components/ScoreBoard/ScoreBoard.module.css */
 
 .score {
-  position: absolute;
+  position: fixed;
   color: white;
-  font-size: 18px;
-  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: rgba(0, 0, 0, 0.4);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 16px;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .topRight {
-  top: 4px;
-  right: 4px;
+  top: max(10px, env(safe-area-inset-top, 10px));
+  right: max(10px, env(safe-area-inset-right, 10px));
 }
 
 .topLeft {
-  top: 4px;
-  left: 4px;
+  top: max(10px, env(safe-area-inset-top, 10px));
+  left: max(10px, env(safe-area-inset-left, 10px));
 }
 
 .topCenter {
-  top: 4px;
+  top: max(10px, env(safe-area-inset-top, 10px));
   left: 50%;
   transform: translateX(-50%);
 }
+
+/* Add Roboto font */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap');
