@@ -468,58 +468,20 @@ const GameCanvas: React.FC = () => {
   );
 
   const resetCamera = () => {
-    // Smoothly reset roll to 0 through the shortest path
-    const currentRoll = cameraRollRef.current;
-    const targetRoll = 0;
+    // Reset camera position immediately to initial position
+    const camera = cameraRef.current!;
+    camera.position.copy(initialCameraPositionRef.current);
+    camera.up.set(0, 1, 0);
+    camera.lookAt(new THREE.Vector3(0, 0, 0));
 
-    // Calculate shortest rotation path
-    let rollDiff = targetRoll - currentRoll;
-    if (Math.abs(rollDiff) > Math.PI) {
-      rollDiff -= Math.sign(rollDiff) * Math.PI * 2;
-    }
-
-    gsap.to(cameraRollRef, {
-      current: currentRoll + rollDiff,
-      duration: 1.5,
-      ease: "power2.inOut",
-    });
-
-    // Reset other camera properties
+    // Reset all camera-related refs to their initial values
+    cameraRollRef.current = 0;
     cameraPitchRef.current = 0;
     cameraYawRef.current = 0;
+    targetZoomRef.current = 25;
+    cameraTargetPositionRef.current.copy(initialCameraPositionRef.current);
 
-    // Reset the target zoom with a slight random variation
-    const randomZoom = 25 + (Math.random() - 0.5) * 5;
-    targetZoomRef.current = randomZoom;
-
-    gsap.to(cameraRef.current!.position, {
-      x: initialCameraPositionRef.current.x,
-      y: initialCameraPositionRef.current.y,
-      z: initialCameraPositionRef.current.z,
-      duration: 1.5,
-      ease: "power2.inOut",
-      onUpdate: () => {
-        // Reset camera up vector
-        cameraRef.current!.up.set(0, 1, 0);
-
-        const currentLookTarget = new THREE.Vector3();
-        cameraRef.current!.getWorldDirection(currentLookTarget);
-        const desiredLookTarget = new THREE.Vector3()
-          .subVectors(
-            new THREE.Vector3(0, -GAME_HEIGHT / 4, 0),
-            cameraRef.current!.position
-          )
-          .normalize();
-
-        currentLookTarget.lerp(desiredLookTarget, 0.015);
-        cameraRef.current!.lookAt(
-          cameraRef
-            .current!.position.clone()
-            .add(currentLookTarget.multiplyScalar(10))
-        );
-      },
-    });
-
+    // Reset ball tracking
     ballToFollowRef.current = null;
     lastBallVelocityRef.current.set(0, 0, 0);
   };
@@ -831,16 +793,21 @@ const GameCanvas: React.FC = () => {
   const endTurn = () => {
     turnInProgressRef.current = false;
     setTurnInProgress(false);
-
-    // Reset turbo state at the end of each turn
     setIsTurbo(false);
 
-    // Reset camera when the turn ends
+    // Reset camera position
     resetCamera();
 
-    moveBlocksDown();
-    createNewRowOfBlocks();
-    setTurn((prev) => prev + 1);
+    // First increment the turn
+    setTurn(prevTurn => {
+      const nextTurn = prevTurn + 1;
+
+      // Then move blocks down and create new row with the next turn number
+      moveBlocksDown();
+      createNewRowOfBlocks(nextTurn); // Pass in the next turn number explicitly
+
+      return nextTurn;
+    });
   };
 
   const moveBlocksDown = () => {
@@ -888,7 +855,7 @@ const GameCanvas: React.FC = () => {
     sceneRef.current.add(topWall);
   };
 
-  const createNewRowOfBlocks = () => {
+  const createNewRowOfBlocks = (nextTurn: number) => {
     const spacing = BLOCK_SIZE * 0.1;
     const effectiveBlockSize = BLOCK_SIZE + spacing;
 
@@ -901,7 +868,7 @@ const GameCanvas: React.FC = () => {
 
     // Calculate number of new blocks to add
     const baseBlockCount = 5;
-    const additionalBlocks = (turn - 1) * 2;
+    const additionalBlocks = nextTurn * 2;
     const newBlockCount = Math.min(baseBlockCount + additionalBlocks, maxBlocksPerRow);
 
     // Create array of possible x positions
@@ -923,9 +890,8 @@ const GameCanvas: React.FC = () => {
         sceneRef.current.add(powerUp);
         blocksRef.current.push(powerUp);
       } else {
-        // Use next turn's number for the block health
-        const nextTurnNumber = turn + 1;
-        const block = createBlock(xPos, yPos, nextTurnNumber);
+        // Use the explicitly passed next turn number
+        const block = createBlock(xPos, yPos, nextTurn);
         sceneRef.current.add(block);
         blocksRef.current.push(block);
       }
