@@ -78,10 +78,24 @@ export const createBall = (startPosition: THREE.Vector3): Ball => {
     velocities[i + 1] = -Math.random() * 0.5 - 0.2;  // Longer backward trail
     velocities[i + 2] = (Math.random() - 0.5) * 0.3; // More depth variation
 
-    // Initialize with white/yellow core color
-    colors[i] = 1.0;     // R
-    colors[i + 1] = 1.0; // G
-    colors[i + 2] = 0.7; // B
+    // Initialize with more varied fire colors
+    const intensity = Math.random();
+    if (intensity > 0.8) {
+      // Core (white-yellow)
+      colors[i] = 1.0;       // R
+      colors[i + 1] = 1.0;   // G
+      colors[i + 2] = 0.7;   // B
+    } else if (intensity > 0.5) {
+      // Mid (orange)
+      colors[i] = 1.0;       // R
+      colors[i + 1] = 0.6;   // G
+      colors[i + 2] = 0.2;   // B
+    } else {
+      // Outer (deep red)
+      colors[i] = 0.8;       // R
+      colors[i + 1] = 0.3;   // G
+      colors[i + 2] = 0.1;   // B
+    }
   }
 
   fireGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));

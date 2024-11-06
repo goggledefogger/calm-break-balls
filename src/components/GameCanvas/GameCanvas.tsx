@@ -681,10 +681,30 @@ const GameCanvas: React.FC = () => {
             velocities[i + 1] = (Math.random() - 0.5) * 0.3 - ballVelocity.y * 0.8;
             velocities[i + 2] = (Math.random() - 0.5) * 0.3;
 
-            // Reset to core color
-            colors[i] = 1.0;     // R
-            colors[i + 1] = 1.0; // G
-            colors[i + 2] = 0.7; // B
+            // Reset with varied fire colors
+            const intensity = Math.random();
+            if (intensity > 0.8) {
+              // Core (white-yellow)
+              colors[i] = 1.0;       // R
+              colors[i + 1] = 1.0;   // G
+              colors[i + 2] = 0.7;   // B
+            } else if (intensity > 0.5) {
+              // Mid (orange)
+              colors[i] = 1.0;       // R
+              colors[i + 1] = 0.6;   // G
+              colors[i + 2] = 0.2;   // B
+            } else {
+              // Outer (deep red)
+              colors[i] = 0.8;       // R
+              colors[i + 1] = 0.3;   // G
+              colors[i + 2] = 0.1;   // B
+            }
+          } else {
+            // Fade colors based on distance for a more natural look
+            const fadeRatio = distance / 2;
+            colors[i] *= 0.98;     // Fade red slightly slower
+            colors[i + 1] *= 0.95; // Fade green faster
+            colors[i + 2] *= 0.93; // Fade blue fastest
           }
         }
 
@@ -895,6 +915,11 @@ const GameCanvas: React.FC = () => {
     turnInProgressRef.current = false;
     setTurnInProgress(false);
     setIsTurbo(false);
+
+    // Hide fire particles for all balls when turn ends
+    ballsRef.current.forEach(ball => {
+      ball.userData.fireParticles.visible = false;
+    });
 
     // Update the start position with the new x coordinate if one was stored
     if (nextStartXRef.current !== null) {
@@ -1199,6 +1224,7 @@ const GameCanvas: React.FC = () => {
                 ball.userData.active = false;
                 ball.position.copy(startPositionRef.current);
                 ball.position.z = 0;
+                ball.userData.fireParticles.visible = false;
               });
               returnedBallsCount.current = totalBallsThisTurnRef.current;
               endTurn();
