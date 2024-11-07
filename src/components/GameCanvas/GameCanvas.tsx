@@ -562,14 +562,17 @@ const GameCanvas: React.FC = () => {
       // Ensure z-component remains zero
       ball.position.z = 0;
 
-      // Check wall collisions
-      if (
-        ball.position.x <= -GAME_WIDTH / 2 + BALL_RADIUS ||
-        ball.position.x >= GAME_WIDTH / 2 - BALL_RADIUS
-      ) {
+      // Check wall collisions with position adjustment
+      if (ball.position.x <= -GAME_WIDTH / 2 + BALL_RADIUS) {
+        ball.position.x = -GAME_WIDTH / 2 + BALL_RADIUS; // Adjust position
+        ball.userData.velocity.x *= -1;
+      }
+      if (ball.position.x >= GAME_WIDTH / 2 - BALL_RADIUS) {
+        ball.position.x = GAME_WIDTH / 2 - BALL_RADIUS; // Adjust position
         ball.userData.velocity.x *= -1;
       }
       if (ball.position.y >= GAME_HEIGHT / 2 - BALL_RADIUS) {
+        ball.position.y = GAME_HEIGHT / 2 - BALL_RADIUS; // Adjust position
         ball.userData.velocity.y *= -1;
       }
 
@@ -581,8 +584,8 @@ const GameCanvas: React.FC = () => {
         // If this is the first ball to return this turn, store its x position
         if (returnedBallsCount.current === 0) {
           nextStartXRef.current = ball.position.x;
-          // Also update the start position immediately to avoid the flash
-          startPositionRef.current.setX(ball.position.x);
+          // Remove this line to prevent immediate update of startPositionRef
+          // startPositionRef.current.setX(ball.position.x);
         }
 
         // Deactivate the ball and increment counter before moving it
@@ -599,7 +602,7 @@ const GameCanvas: React.FC = () => {
         }
       }
 
-      // Block collisions
+      // Block collisions with position adjustment
       blocksRef.current.forEach((block) => {
         const distance = ball.position.distanceTo(block.position);
         const collisionDistance =
@@ -632,6 +635,10 @@ const GameCanvas: React.FC = () => {
 
             // Ensure velocity z-component remains zero after reflection
             ball.userData.velocity.z = 0;
+
+            // Adjust ball position to prevent overlapping with the block
+            const overlap = collisionDistance - distance;
+            ball.position.add(normal.multiplyScalar(overlap));
           }
         }
       });
@@ -651,7 +658,8 @@ const GameCanvas: React.FC = () => {
       if (isTurboRef.current) {
         const positions = ball.userData.fireParticlePositions;
         const velocities = ball.userData.fireParticleVelocities;
-        const colors = ball.userData.fireParticles.geometry.attributes.color.array;
+        const colors =
+          ball.userData.fireParticles.geometry.attributes.color.array;
         const particleCount = positions.length / 3;
 
         // Get ball's velocity direction for aligned trail
@@ -666,8 +674,8 @@ const GameCanvas: React.FC = () => {
           // Calculate particle life based on distance from ball
           const distance = Math.sqrt(
             positions[i] * positions[i] +
-            positions[i + 1] * positions[i + 1] +
-            positions[i + 2] * positions[i + 2]
+              positions[i + 1] * positions[i + 1] +
+              positions[i + 2] * positions[i + 2]
           );
 
           if (distance > 2) {
@@ -678,39 +686,42 @@ const GameCanvas: React.FC = () => {
 
             // Reset velocities aligned opposite to ball's movement
             velocities[i] = (Math.random() - 0.5) * 0.3 - ballVelocity.x * 0.8;
-            velocities[i + 1] = (Math.random() - 0.5) * 0.3 - ballVelocity.y * 0.8;
+            velocities[i + 1] =
+              (Math.random() - 0.5) * 0.3 - ballVelocity.y * 0.8;
             velocities[i + 2] = (Math.random() - 0.5) * 0.3;
 
             // Reset with varied fire colors
             const intensity = Math.random();
             if (intensity > 0.8) {
               // Core (white-yellow)
-              colors[i] = 1.0;       // R
-              colors[i + 1] = 1.0;   // G
-              colors[i + 2] = 0.7;   // B
+              colors[i] = 1.0; // R
+              colors[i + 1] = 1.0; // G
+              colors[i + 2] = 0.7; // B
             } else if (intensity > 0.5) {
               // Mid (orange)
-              colors[i] = 1.0;       // R
-              colors[i + 1] = 0.6;   // G
-              colors[i + 2] = 0.2;   // B
+              colors[i] = 1.0; // R
+              colors[i + 1] = 0.6; // G
+              colors[i + 2] = 0.2; // B
             } else {
               // Outer (deep red)
-              colors[i] = 0.8;       // R
-              colors[i + 1] = 0.3;   // G
-              colors[i + 2] = 0.1;   // B
+              colors[i] = 0.8; // R
+              colors[i + 1] = 0.3; // G
+              colors[i + 2] = 0.1; // B
             }
           } else {
             // Fade colors based on distance for a more natural look
             const fadeRatio = distance / 2;
-            colors[i] *= 0.98;     // Fade red slightly slower
+            colors[i] *= 0.98; // Fade red slightly slower
             colors[i + 1] *= 0.95; // Fade green faster
             colors[i + 2] *= 0.93; // Fade blue fastest
           }
         }
 
         // Update the geometry
-        ball.userData.fireParticles.geometry.attributes.position.needsUpdate = true;
-        ball.userData.fireParticles.geometry.attributes.color.needsUpdate = true;
+        ball.userData.fireParticles.geometry.attributes.position.needsUpdate =
+          true;
+        ball.userData.fireParticles.geometry.attributes.color.needsUpdate =
+          true;
       }
 
       ball.userData.fireParticles.visible = isTurboRef.current;
@@ -917,7 +928,7 @@ const GameCanvas: React.FC = () => {
     setIsTurbo(false);
 
     // Hide fire particles for all balls when turn ends
-    ballsRef.current.forEach(ball => {
+    ballsRef.current.forEach((ball) => {
       ball.userData.fireParticles.visible = false;
     });
 
@@ -936,7 +947,7 @@ const GameCanvas: React.FC = () => {
     resetCamera();
 
     // First increment the turn
-    setTurn(prevTurn => {
+    setTurn((prevTurn) => {
       const nextTurn = prevTurn + 1;
 
       // Then move blocks down and create new row with the next turn number
